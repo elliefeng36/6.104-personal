@@ -158,3 +158,15 @@ makeSuggestion (request: SuggestRequest, taskList: TaskList) : (task: Task) **wh
 ### notes
 
 When a new User is created (such as making an account), an empty TaskList with that user as its Owner and empty activeTasks and completedTasks lists is instantiated and set as that user's TaskList. I am currently envisioning duration and recurringPeriod as time counted in minutes, although in the user interfacing part of the app, units would show as days/weeks/months etc. as appropriate. Requesting.taskTimeElapsed triggers every time a recurring task's recurringPeriod has elapsed.
+
+## UI Layout
+
+![Wireframe](P1\wireframe.jpg)
+
+## User journey
+
+As Alice, a student at MIT, is walking to class one morning, she sneezes from the pollen in the air and distantly remembers that she's out of allergy medicine and should get more. Usually, this is the kind of brief thought that slips out of her mind quickly, resulting in half an allergy season's worth of sneezing and sniffling before Alice finally remembers this strongly enough to actually buy the medicine. But with Taskmaster, Alice quickly pulls out her phone and types in "get allergy meds!!" into the Name field in the Add input box. She's a bit late to class, so she doesn't pause to fill in the rest of the fields.
+
+During lunch, Alice takes a glance at her tasklist on Taskmaster, and sees that she hasn't finished filling out the information for the allergy meds task. She could leave it blank, and it would work just fine, but Alice takes a few seconds to set an estimated duration of half an hour for the walk to Target and a deadline of Sunday so that she can have her medicines before the worst of the pollen starts. At lunch, her friend Bob sits down across from her. They start talking about a club they're both in, and specifically, the monthly social that's coming up. Alice just got elected social co-chair, and though most of the work is done, she realizes she needs to buy snacks and drinks for the social every month. So, she opens Taskmaster, adds the task, and sets it to recur monthly. Now, instead of trying to remember to do something once a month, which, from her experience, tends to go very poorly while also stressing her out, Alice will see her reminder to get social supplies reappear every month without her having to do anything.
+
+After lunch, Alice has twenty minutes with nothing on her calendar. She could study, but she's on top of all her classes, and she wants to get something useful done. When she opens her tasklist on Taskmaster, she immediately feels inundated by the list of things she has to do. But instead of getting paralyzed trying to figure out whether she should email her UROP advisor, schedule a vaccination, clean her room, or apply to a job, she tells Taskmaster how much time she has and asks it to suggest something. Looks like she'll be drafting an email before her next class instead of getting hit by the fatigue of being unable to decide and ultimately doing nothing productive instead.

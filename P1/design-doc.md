@@ -38,6 +38,10 @@ As for bad situation #3, one of the phenomenons that contribute to it is decisio
 
 A proposal for a solution would be a task tracker that suggests tasks or activities to do. By being digital and accessible on one's phone, one can quickly write down items that need to be done, giving this solution the strengths of the digital to-do list. However, when creating a task, users can also make it recurring, which removes the burden of remembering to add a repeating task back onto a to-do list. Lastly, users would also be able to make an estimate at how long a task might take when jotting it down. Then, when a user has free time, they can tell this app how much time they have, and it will suggest tasks to be done, removing a large amount of the decision fatigue that comes with deciding what to do from a long list of items. Thus, my proposed solution takes the best parts of to-do lists and patches the bad situations that can't be fixed by a plain to-do list.
 
+#### Stakeholders
+
+This app is intended to help MIT students, but anyone with a hectic life that gets overburdened by keeping track of daily minutiae is a potential customer and thus stakeholder of this project.
+
 ## Application Pitch
 
 ### Taskmaster
@@ -170,3 +174,5 @@ As Alice, a student at MIT, is walking to class one morning, she sneezes from th
 During lunch, Alice takes a glance at her tasklist on Taskmaster, and sees that she hasn't finished filling out the information for the allergy meds task. She could leave it blank, and it would work just fine, but Alice takes a few seconds to set an estimated duration of half an hour for the walk to Target and a deadline of Sunday so that she can have her medicines before the worst of the pollen starts. At lunch, her friend Bob sits down across from her. They start talking about a club they're both in, and specifically, the monthly social that's coming up. Alice just got elected social co-chair, and though most of the work is done, she realizes she needs to buy snacks and drinks for the social every month. So, she opens Taskmaster, adds the task, and sets it to recur monthly. Now, instead of trying to remember to do something once a month, which, from her experience, tends to go very poorly while also stressing her out, Alice will see her reminder to get social supplies reappear every month without her having to do anything.
 
 After lunch, Alice has twenty minutes with nothing on her calendar. She could study, but she's on top of all her classes, and she wants to get something useful done. When she opens her tasklist on Taskmaster, she immediately feels inundated by the list of things she has to do. But instead of getting paralyzed trying to figure out whether she should email her UROP advisor, schedule a vaccination, clean her room, or apply to a job, she tells Taskmaster how much time she has and asks it to suggest something. Looks like she'll be drafting an email before her next class instead of getting hit by the fatigue of being unable to decide and ultimately doing nothing productive instead.
+
+So, throughout a regular day, Taskmaster has facilitated Alice to quickly jot down tasks, set up recurring tasks, and suggest something productive for her to do during a break in her schedule.

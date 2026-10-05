@@ -1,0 +1,39 @@
+# Personal Project Design Document
+
+## Problem Framing
+
+### Problem Statement
+
+#### Domain
+
+The human life has become continuously more and more convoluted and jam-packed ever since we invented the steam engine, and this is possibly best exemplified in the Google Calendar of an MIT student. Where it was once possible, maybe in middle or high school, to make classes and homework the main priority of someone's life, students now have to juggle an already heavy academic workload with one or multiple jobs, research, extracurriculars, feeding and grooming oneself, having a social life, keeping house, and the other minutiae that come with MIT life. While remembering exams and club meetings and big deadlines is not very difficult, smaller tasks tend to slip through the cracks, either pushed back indefinitely or forgotten altogether. As an example, the unscheduled tasks I had to do yesterday, 9/10, were to read through my syllabi and take note of exam dates, visit the post office to send out a birthday card, go to the library to check out a keyboard for my music class, register to vote, pick up two packages, order Doordash for a club event, and schedule an interview. However, I probably did things yesterday that I've since forgotten about, and I've probably forgotten about things that I should have done yestesrday.
+
+Though it would be possible for many MIT students to be significantly less busy, by dropping clubs or taking less classes for instance, we continue on this way because the MIT population was selected to be highly driven and ambitious. So, most students take to calendars, schedules, and lists to keep track of what to do. However, this still results in some major gaps, as described below.
+
+#### Bad situations
+
+1. People often forget to do small tasks. These are tasks that are too minute to be scheduled, such as retrieving a package from desk or responding to a message on Slack, as opposed to schedulable tasks, like going to the grocery store or collaborating on a pset. Since people often look to their calendars for what to do, these tasks slip through the cracks.
+
+2. Many small tasks, such as sweeping or throwing out expired food, need to happen regularly, which makes remmbering to do them or writing them down a constant tiny burden. After all, writing down that you need to wipe down the sink every two weeks takes nearly as much time (finding a pencil and paper or the notes in your phone, writing out the words, putting it somewhere you'll see it) as the task itself. So, people are forced to either take time on something tiny or carry the mental load of remembering every recurring small task.
+
+3. Whenever someone has free time, they are frozen when trying to decide what to do. This happens both when someone wants to use that free time productively or for leisure. In the first case, there may be too many small tasks (as described above) to do that a person simply forgets all of them, or too many competing deadlines that quickly become overwhelming to sort out. In the latter situation, there are so many ways to relax--a book, movie, hobby, nap, side project, etc--that too often people end up on an easy dopamine hit like Instagram that they later regret.
+
+#### Corroboration
+
+There are many, many products marketed towards students to help them plan and manage their daily life. Recently, Google Gemini has been doing a large advertising push towards college students, with messaging emphasizing Gemini's ability to help meal prep, schedule out time for the gym, or suggest things to do for fun. Google obviously sees this as a huge market, which strongly implies that students are overwhelmed by such daily tasks and that there is not yet a broadly working solution.
+
+As for bad situation #3, this is a phenomenon known as decision fatigue. A search on Google Scholar for "decision fatigue in students" reveals hundreds of thousands of articles, with one highly relevant paper being published in 2026 suggesting that this is still a major problem. The short-form content epidemic that is pervasive among college students in the U.S. is in part aggrieved by decision fatigue. After a long day of deciding what to do with every crumb of free time you have, the easiest way to relax is not to choose what interesting and fulfilling hobby to do next--it is to open the easiest app on your phone and watch videos that are fed to you. You never have to choose what to look at next, which is why it is so easy and appealing to college students.
+
+#### Workarounds and comparables
+
+**Calendars:** Most students use some sort of calendar, often Google Calendar, in order to block out classes, clubs, and other events. Many also block out time for various errands and work, such as an hour for working on a UROP or getting dinner with a friend. However, for tasks that take five to ten minutes, minutely scheduling them onto a calendar makes it unreadable at best and is actively unhelpful at worst--after all, if you miss your ten minute slot to respond to an email, you'd have to reschedule it to another time slot, and the email might take more than ten minutes to respond to, which cascades into your next small task.
+
+**Post-it notes:** This is a long-standing solution--physical notes that you can stick next to whatever needs to be done to jog your memory. The biggest issue with this solution is how hard it is to make one. After thinking of something, you'd need to find a pencil, retrieve your stack of post-it notes, write down the task, and then physically go to the relevant place and stick the note there. This is easy if you're indexing your fridge and sticking your grocery list on its door, but if you run into a friend in class and get reminded of the cookies you need to buy for her party there, you'd either have to hang on to a small slip of paper for a long time or just remember to add cookies to the list once you get home, creating yet another small task to keep track of.
+
+**Digital to-do lists:** A digital to-do list, such as one on your phone, is likely the best solution to having many small things to do. It's always on you, and it's convenient to add to. However, it doesn't take care of big problem #3, as at any free moment, you'd need to consult a likely long list and decide which item to complete. It also can't fully address big problem #2, as you'd either have to keep recurring tasks on the to-do list even when they're not relevant, or keep deleting and readding them, which takes mental load.
+
+**AI assistants:** This is a very new solution, so it remains to be seen how useful it might be at solving these bad situations. Though these AI assistants can remove much of the burden of choice, you do still have to prompt them, which still takes effort. Furthermore, they are still prone to hallucinations and reaching token capacity, which may cause them to give you bogus unneeded tasks to do or forget longstanding recurring tasks.
+
+#### Solution sketch
+
+A proposal for a solution would be a task tracker that suggests tasks or activities to do. By being digital and accessible on one's phone, one can quickly write down items that need to be done, giving this solution the strengths of the digital to-do list. However, when creating a task, users can also make it recurring, which removes the burden of remembering to add a repeating task back onto a to-do list. Lastly, users would also be able to make an estimate at how long a task might take when jotting it down. Then, when a user has free time, they can tell this app how much time they have, and it will suggest tasks to be done, removing a large amount of the decision fatigue that comes with deciding what to do from a long list of items. Thus, my proposed solution takes the best parts of to-do lists and patches the bad situations that can't be fixed by a plain to-do list.

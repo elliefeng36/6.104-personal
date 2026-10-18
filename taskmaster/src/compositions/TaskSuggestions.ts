@@ -1,3 +1,4 @@
+// Builds active-task candidates and requests a suggestion.
 import { endpoint, receive, respond } from "@mit-sdg/sync-engine/boundary";
 import { compute, now, where } from "@mit-sdg/sync-engine/language";
 import { concepts, computations } from "../concepts.ts";

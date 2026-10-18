@@ -1,3 +1,4 @@
+// Ranks supplied candidates using deadlines and optional time limits.
 import type { Collection } from "mongodb";
 
 export class InvalidTimeLimit extends Error {}
@@ -32,9 +33,12 @@ export class TaskSuggestingConcept {
     const found = await this.store.findOne({ request });
     if (!found) throw new UnknownSuggestRequest("There is no such suggestion request.");
     const candidates = pool.entries.map(row => row.details);
-    const viable = candidates.filter(candidate => found.timeLimit === undefined ||
-      (typeof candidate.duration === "number" && Number.isFinite(candidate.duration) &&
-        candidate.duration >= 0 && candidate.duration <= found.timeLimit));
+    const viable = candidates.filter(candidate => {
+      // Missing estimates count as zero for time-budget filtering only.
+      const duration = candidate.duration === undefined ? 0 : candidate.duration;
+      return found.timeLimit === undefined ||
+        (typeof duration === "number" && Number.isFinite(duration) && duration >= 0 && duration <= found.timeLimit);
+    });
     // Stable sorting preserves supplied candidate order for equal/no deadlines.
     // Overdue tasks naturally precede future deadlines; undated tasks come last.
     const deadline = (candidate: typeof viable[number]) => {

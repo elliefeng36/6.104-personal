@@ -17,7 +17,8 @@ suggestionCandidates(taskList: TaskListing.TaskList, records: TaskSetting.TaskRe
 ```
 
 No limit considers all active candidates, including unknown durations. A limit
-requires a known duration at most the limit; zero permits zero-duration tasks.
+requires an effective duration at most the limit; missing estimates count as zero.
+A zero limit permits both zero-duration tasks and tasks without estimates.
 Ranking uses earliest deadline, overdue before future, undated last, with
 addition order breaking ties. Empty lists return EMPTY_TASKLIST; when nothing
 fits, NO_VIABLE_TASKS is a successful empty outcome. Invalid limits are refused

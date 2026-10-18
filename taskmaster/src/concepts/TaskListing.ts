@@ -1,3 +1,4 @@
+// Tracks active and completed task IDs for each owner.
 import type { Collection } from "mongodb";
 
 export class NoSuchUser extends Error {}

@@ -1,3 +1,4 @@
+// Connects Authenticating to its specification and refusal codes.
 import { registerConcept } from "@mit-sdg/sync-engine/assembly";
 import {
   AuthenticatingConcept,

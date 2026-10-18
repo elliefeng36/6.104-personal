@@ -1,3 +1,4 @@
+// Selects the checked design and generated API contracts.
 import { assembleApplication } from "./src/assembly.ts";
 import { httpWire } from "@mit-sdg/sync-engine-http/tooling";
 import { policy } from "./src/edge.ts";

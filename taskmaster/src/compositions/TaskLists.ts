@@ -1,3 +1,4 @@
+// Connects sessions, list membership, and task details.
 import { endpoint, receive, respond } from "@mit-sdg/sync-engine/boundary";
 import { each, form, former, now } from "@mit-sdg/sync-engine/language";
 import { concepts } from "../concepts.ts";

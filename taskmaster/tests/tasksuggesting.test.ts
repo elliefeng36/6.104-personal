@@ -1,3 +1,4 @@
+// Tests suggestion ranking, time limits, and empty results.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { MongoClient } from "mongodb";
 import { TaskSuggestingConcept, InvalidTimeLimit, UnknownSuggestRequest, type CandidatePool, type SuggestRequest } from "../src/concepts/TaskSuggesting.ts";
@@ -39,7 +40,7 @@ describe("TaskSuggesting concept", () => {
   test("with a limit, selects the earliest deadline among tasks that fit", async () => {
     expect(await suggest(pool(
       { task: "too-long", deadline: earlier, duration: 60 },
-      { task: "unknown", deadline: earlier }, { task: "fits", deadline: later, duration: 20 },
+      { task: "unknown" }, { task: "fits", deadline: later, duration: 20 },
       { task: "undated", duration: 10 },
     ), 20)).toEqual({ task: "fits", outcome: "SUGGESTED" });
   });
@@ -47,10 +48,14 @@ describe("TaskSuggesting concept", () => {
     expect(await suggest(pool({ task: "unknown", deadline: earlier }))).toEqual({ task: "unknown", outcome: "SUGGESTED" });
     expect(await suggest(pool({ task: "unknown" }), null)).toEqual({ task: "unknown", outcome: "SUGGESTED" });
   });
-  test("an unknown duration is excluded under a time limit", async () => {
-    expect(await suggest(pool({ task: "unknown" }), 30)).toEqual({ task: null, outcome: "NO_VIABLE_TASKS" });
+  test("missing duration counts as zero under positive and zero time limits", async () => {
+    for (const limit of [30, 0]) {
+      expect(await suggest(pool({ task: "unknown" }), limit)).toEqual({ task: "unknown", outcome: "SUGGESTED" });
+    }
+    expect(await suggest(pool({ task: "estimated", duration: 10, deadline: later }, { task: "unknown", deadline: earlier }), 10))
+      .toEqual({ task: "unknown", outcome: "SUGGESTED" });
   });
-  test("zero permits only zero-duration tasks", async () => {
+  test("zero permits zero-duration and unestimated tasks", async () => {
     expect(await suggest(pool({ task: "one", duration: 1 }, { task: "zero", duration: 0 }, { task: "unknown" }), 0)).toEqual({ task: "zero", outcome: "SUGGESTED" });
     expect(await suggest(pool({ task: "one", duration: 1 }), 0)).toEqual({ task: null, outcome: "NO_VIABLE_TASKS" });
   });
@@ -71,7 +76,7 @@ describe("TaskSuggesting concept", () => {
     });
   }
   test("no task fits the budget returns a distinct empty outcome", async () => {
-    expect(await suggest(pool({ task: "long", duration: 60 }, { task: "unknown" }), 10)).toEqual({ task: null, outcome: "NO_VIABLE_TASKS" });
+    expect(await suggest(pool({ task: "long", duration: 60 }, { task: "longer", duration: 90 }), 10)).toEqual({ task: null, outcome: "NO_VIABLE_TASKS" });
   });
   for (const invalid of [-1, NaN, Infinity, -Infinity, "15", "", true]) {
     test(`invalid limit ${String(invalid)} refuses before creating a request`, async () => {
@@ -153,6 +158,8 @@ describe("Authenticated suggestion composition", () => {
     expect((await (await handle(post(path, { timeLimit: 15 }, cookie))).json()).suggestion.outcome).toBe("NO_VIABLE_TASKS");
     expect((await handle(post("/tasks/update", { task, changes: { duration: 15 } }, cookie))).status).toBe(200);
     expect((await (await handler()(post(path, { timeLimit: 15 }, cookie))).json()).suggestion.task).toBe(task);
+    expect((await handle(post("/tasks/update", { task, changes: { duration: null } }, cookie))).status).toBe(200);
+    expect((await (await handle(post(path, { timeLimit: 0 }, cookie))).json()).suggestion.task).toBe(task);
     await handle(post("/tasklists/complete", { task }, cookie));
     expect((await (await handle(post(path, {}, cookie))).json()).suggestion.outcome).toBe("EMPTY_TASKLIST");
   });

@@ -1,11 +1,4 @@
-/**
- * Accounts and browser sessions: registering, signing in and out, and resolving
- * the current user.
- *
- * Authenticating proves an account reference represented by its username.
- * Sessioning holds an opaque session for an external subject. Neither names the
- * other; the adaptation lives here.
- */
+// Connects account verification to session creation and logout.
 import { now } from "@mit-sdg/sync-engine/language";
 import { endpoint, receive, respond } from "@mit-sdg/sync-engine/boundary";
 

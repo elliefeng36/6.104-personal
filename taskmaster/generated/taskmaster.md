@@ -47,8 +47,8 @@ Defined in [Sessioning](../design/concepts/Sessioning.md), line 1.
 
 #### Instances
 
-- `Sessioning` — instance of `Sessioning` — [Implemented application types](../design/types.md), line 9.
-  - `Subject` is `Authenticating.Account` — [Implemented application types](../design/types.md), line 10.
+- `Sessioning` — instance of `Sessioning` — [Implemented application types](../design/types.md), line 10.
+  - `Subject` is `Authenticating.Account` — [Implemented application types](../design/types.md), line 11.
 
 ### TaskListing
 
@@ -74,9 +74,9 @@ Defined in [TaskListing](../design/concepts/TaskListing.md), line 1.
 
 #### Instances
 
-- `TaskListing` — instance of `TaskListing` — [Implemented application types](../design/types.md), line 11.
-  - `Task` is `TaskSetting.Task` — [Implemented application types](../design/types.md), line 13.
-  - `User` is `Authenticating.Account` — [Implemented application types](../design/types.md), line 12.
+- `TaskListing` — instance of `TaskListing` — [Implemented application types](../design/types.md), line 13.
+  - `Task` is `TaskSetting.Task` — [Implemented application types](../design/types.md), line 15.
+  - `User` is `Authenticating.Account` — [Implemented application types](../design/types.md), line 14.
 
 ### TaskSetting
 
@@ -121,8 +121,8 @@ Defined in [TaskSetting](../design/concepts/TaskSetting.md), line 1.
 
 #### Instances
 
-- `TaskSetting` — instance of `TaskSetting` — [Implemented application types](../design/types.md), line 14.
-  - `User` is `Authenticating.Account` — [Implemented application types](../design/types.md), line 15.
+- `TaskSetting` — instance of `TaskSetting` — [Implemented application types](../design/types.md), line 17.
+  - `User` is `Authenticating.Account` — [Implemented application types](../design/types.md), line 18.
 
 ### TaskSuggesting
 
@@ -137,9 +137,9 @@ Defined in [TaskSuggesting](../design/concepts/TaskSuggesting.md), line 1.
 
 #### Instances
 
-- `TaskSuggesting` — instance of `TaskSuggesting` — [Implemented application types](../design/types.md), line 16.
-  - `Task` is `TaskSetting.Task` — [Implemented application types](../design/types.md), line 18.
-  - `User` is `Authenticating.Account` — [Implemented application types](../design/types.md), line 17.
+- `TaskSuggesting` — instance of `TaskSuggesting` — [Implemented application types](../design/types.md), line 20.
+  - `Task` is `TaskSetting.Task` — [Implemented application types](../design/types.md), line 22.
+  - `User` is `Authenticating.Account` — [Implemented application types](../design/types.md), line 21.
 
 ## Computations
 
@@ -458,7 +458,7 @@ then
 
 Authored path: `TaskSuggestions.MakeRequest`.
 - Covered by [TaskSuggestions](../design/compositions/TaskSuggestions.md), line 3.
-- Covered by [TaskSuggestions](../design/compositions/TaskSuggestions.md), line 28.
+- Covered by [TaskSuggestions](../design/compositions/TaskSuggestions.md), line 29.
 
 ```reaction
 when RequestBoundary.request (path: "/taskSuggestions/makeRequest", requestId, session, timeLimit)
@@ -472,7 +472,7 @@ then
 
 Authored path: `TaskSuggestions.MakeRequest`.
 - Covered by [TaskSuggestions](../design/compositions/TaskSuggestions.md), line 3.
-- Covered by [TaskSuggestions](../design/compositions/TaskSuggestions.md), line 28.
+- Covered by [TaskSuggestions](../design/compositions/TaskSuggestions.md), line 29.
 
 ```reaction
 when Sessioning.current (instant, session, subject: user), asked by TaskSuggestions.MakeRequest
@@ -486,7 +486,7 @@ then
 
 Authored path: `TaskSuggestions.MakeRequest`.
 - Covered by [TaskSuggestions](../design/compositions/TaskSuggestions.md), line 3.
-- Covered by [TaskSuggestions](../design/compositions/TaskSuggestions.md), line 28.
+- Covered by [TaskSuggestions](../design/compositions/TaskSuggestions.md), line 29.
 
 ```reaction
 when TaskSuggesting.makeRequest (timeLimit, user, request), asked by TaskSuggestions.MakeRequest#2
@@ -502,7 +502,7 @@ then
 
 Authored path: `TaskSuggestions.MakeRequest`.
 - Covered by [TaskSuggestions](../design/compositions/TaskSuggestions.md), line 3.
-- Covered by [TaskSuggestions](../design/compositions/TaskSuggestions.md), line 28.
+- Covered by [TaskSuggestions](../design/compositions/TaskSuggestions.md), line 29.
 
 ```reaction
 when TaskSuggesting.makeSuggestion (pool, request, suggestion), asked by TaskSuggestions.MakeRequest#3

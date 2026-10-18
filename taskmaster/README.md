@@ -26,8 +26,8 @@ future work. Former dummy memberships are hidden without modifying stored lists.
 Use **Suggest a task** above the task form for manual testing:
 
 - Leave the time available blank to consider every active task.
-- Enter minutes to consider only known durations that fit (an exact fit counts).
-- Zero considers only tasks with duration zero. Unknown durations require no limit.
+- Enter minutes to consider tasks whose effective durations fit (an exact fit counts).
+- Missing estimates count as zero; a zero limit includes them and zero-duration tasks.
 - The earliest deadline wins; overdue tasks come first, undated tasks last, and
   addition order breaks ties.
 - An empty list and a list with no fitting tasks show different helpful messages.

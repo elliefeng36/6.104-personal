@@ -1,3 +1,4 @@
+// Tests credentials, sessions, and authentication endpoints.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { MongoClient } from "mongodb";
 import { createGateway } from "@mit-sdg/sync-engine/boundary";

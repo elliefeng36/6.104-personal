@@ -1,3 +1,4 @@
+// Combines registered concepts with application compositions.
 import { assemble, type ImplementationOverrides } from "@mit-sdg/sync-engine/assembly";
 import { applicationConceptSet } from "./concepts.ts";
 import { composition as sessions } from "./compositions/Sessions.ts";

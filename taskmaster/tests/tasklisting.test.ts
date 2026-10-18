@@ -1,3 +1,4 @@
+// Tests task membership changes and owner isolation.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { MongoClient } from "mongodb";
 import { createGateway } from "@mit-sdg/sync-engine/boundary";

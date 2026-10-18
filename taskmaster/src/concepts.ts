@@ -1,3 +1,4 @@
+// Registers concepts and pure computations for the application.
 import { conceptSet } from "@mit-sdg/sync-engine/assembly";
 import { authenticating } from "./concepts/Authenticating.registry.ts";
 import { sessioning } from "./concepts/Sessioning.registry.ts";

@@ -1,3 +1,4 @@
+// Checks that concept implementations do not import peers.
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import ts from "typescript";

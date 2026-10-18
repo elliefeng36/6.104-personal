@@ -1,3 +1,4 @@
+// Registers accounts and verifies hashed passwords.
 import type { Collection } from "mongodb";
 import { MongoServerError } from "mongodb";
 
@@ -24,6 +25,7 @@ export class AuthenticatingConcept {
       throw new WeakPassword("A password must contain 8 to 128 characters.");
     }
     const passwordVerifier = await Bun.password.hash(password, { algorithm: "argon2id" });
+    // The unique username index also prevents concurrent duplicates.
     try {
       await this.store.insertOne({ username, passwordVerifier });
     } catch (error) {

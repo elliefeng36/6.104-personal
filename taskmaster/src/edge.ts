@@ -1,3 +1,4 @@
+// Configures HTTP errors, session cookies, and origin protection.
 import { httpPolicy } from "@mit-sdg/sync-engine-http/policy";
 
 export function authenticationPolicy(publicOrigin: string) {

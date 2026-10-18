@@ -1,3 +1,4 @@
+// Creates and edits task details while enforcing ownership.
 import type { Collection, UpdateFilter } from "mongodb";
 
 export class EmptyName extends Error {}
@@ -94,6 +95,7 @@ export class TaskSettingConcept {
   }
 
   async #update(owner: string, task: string, changes: TaskChanges, instant?: Date) {
+    // Validate before applying all field changes together.
     if (!(await this.store.findOne({ owner, task }))) throw new TaskNotFound("There is no such task.");
     // A previously valid deadline may now be past. Only validate supplied changes.
     this.#validate(changes, instant);

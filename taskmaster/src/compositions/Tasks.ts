@@ -1,3 +1,4 @@
+// Creates listed tasks and applies owner-checked edits.
 import { now } from "@mit-sdg/sync-engine/language";
 import { endpoint, receive, respond } from "@mit-sdg/sync-engine/boundary";
 import { concepts } from "../concepts.ts";

@@ -1,3 +1,4 @@
+// Creates the MongoDB connection from the environment.
 import { MongoClient } from "mongodb";
 
 const url = process.env.MONGODB_URL;

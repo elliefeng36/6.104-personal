@@ -1,3 +1,4 @@
+// Connects TaskSuggesting to its specification and refusal codes.
 import { registerConcept } from "@mit-sdg/sync-engine/assembly";
 import { TaskSuggestingConcept, InvalidTimeLimit, UnknownSuggestRequest } from "./TaskSuggesting.ts";
 import spec from "@design/concepts/TaskSuggesting.md" with { type: "text" };

@@ -9,7 +9,7 @@ available-time budget.
 
 Alice requests a suggestion and supplies task candidates. Without a time limit,
 the earliest-deadline candidate is suggested. With a time limit, candidates
-must have a known duration that fits. An empty candidate pool and a pool with no
+must fit using their estimated duration, or zero when no estimate is set. An empty candidate pool and a pool with no
 fitting candidate produce explicit empty outcomes instead of an invented task.
 
 ## Types
@@ -58,14 +58,14 @@ makeSuggestion (request: SuggestRequest, pool: CandidatePool) : returns (suggest
     record EMPTY_TASKLIST outcome and remove any previous suggestedTask
     set suggestion to a record with null task and EMPTY_TASKLIST outcome
     returns suggestion
-  where a time limit is set and no candidate has a finite nonnegative duration at most that limit
+  where a time limit is set and no candidate has a finite nonnegative effective duration at most that limit, treating missing estimates as zero
   then
     record NO_VIABLE_TASKS outcome and remove any previous suggestedTask
     set suggestion to a record with null task and NO_VIABLE_TASKS outcome
     returns suggestion
   where at least one candidate is viable
   then
-    with no time limit consider all candidates, otherwise consider only known durations at most the limit
+    with no time limit consider all candidates, otherwise consider effective durations at most the limit, treating missing estimates as zero
     choose the earliest deadline, including overdue deadlines before future ones, with absent or invalid deadlines last
     break ties by supplied candidate order
     record SUGGESTED outcome and chosen task identity

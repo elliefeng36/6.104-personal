@@ -1,3 +1,4 @@
+// Vue interface using the generated, typed API client.
 import { createApp, onMounted, reactive, ref } from "vue/dist/vue.esm-bundler.js";
 import { createHttpClient } from "@mit-sdg/sync-engine-http/client";
 import type { TaskmasterWireHttp } from "../generated/wire.ts";
@@ -45,7 +46,7 @@ createApp({
         await loadTasks();
         const selected = result.suggestion;
         if (selected.outcome === "EMPTY_TASKLIST") suggestionMessage.value = "No active tasks to suggest. Create a task first.";
-        else if (selected.outcome === "NO_VIABLE_TASKS") suggestionMessage.value = "No tasks fit this time limit. Try more time, remove the limit, or add estimated durations to your tasks.";
+        else if (selected.outcome === "NO_VIABLE_TASKS") suggestionMessage.value = "No tasks fit this time limit. Try more time or remove the limit.";
         else {
           suggestion.value = activeTasks.value.find(task => task.task === selected.task) ?? null;
           if (!suggestion.value) suggestionMessage.value = "That task changed while loading. Ask for another suggestion.";
@@ -90,6 +91,7 @@ createApp({
         const original = editing.value;
         let result;
         if (original) {
+          // Send only changed fields; null clears an optional value.
           const changes: TaskChanges = {};
           if (draft.name !== original.name) changes.name = draft.name;
           if (draft.deadline !== localTime(original.deadline)) changes.deadline = draft.deadline ? new Date(draft.deadline).toISOString() : null;
@@ -163,7 +165,7 @@ createApp({
           <form @submit.prevent="suggestTask">
             <label for="suggestion-time">Time available in minutes (optional)</label>
             <input id="suggestion-time" v-model="timeLimit" type="text" inputmode="decimal" :disabled="busy || tasksLoading" @input="clearSuggestion">
-            <p class="hint">Leave blank for no limit. With a limit, tasks need a known duration that fits. Earlier deadlines come first.</p>
+            <p class="hint">Leave blank for no limit. Missing duration estimates count as 0 minutes. Earlier deadlines come first.</p>
             <button type="submit" :disabled="busy || tasksLoading">Suggest a task</button>
             <p v-if="suggestionError" role="alert" class="error">{{ suggestionError }}</p>
           </form>

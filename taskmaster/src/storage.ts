@@ -1,3 +1,4 @@
+// Gives each concept its own MongoDB collection and indexes.
 import type { Db } from "mongodb";
 import { AuthenticatingConcept, type Account } from "./concepts/Authenticating.ts";
 import { SessioningConcept, type Session } from "./concepts/Sessioning.ts";

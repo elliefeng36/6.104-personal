@@ -1,3 +1,4 @@
+// Starts the API server and serves the Vue frontend.
 import { assembleApplication } from "./assembly.ts";
 import { createGateway } from "@mit-sdg/sync-engine/boundary";
 import { createHttpHandler } from "@mit-sdg/sync-engine-http/handler";

@@ -1,10 +1,4 @@
-/**
- * Runtime endpoint validators shared by the composition modules.
- *
- * Generated TypeScript types constrain callers that compile against the wire;
- * these functions reject the untyped values a real request can carry. This
- * module holds no declarations, so assembly never walks it.
- */
+// Checks request and response values at the API boundary.
 import type { EndpointValidator } from "@mit-sdg/sync-engine/boundary";
 
 export function record(value: unknown): value is Record<string, unknown> {
@@ -61,4 +55,3 @@ export const issuedSessionOutput = validator(
     value.expiresAt instanceof Date,
   "response must contain account, session, and Date expiry",
 );
-

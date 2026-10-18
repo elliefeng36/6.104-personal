@@ -1,3 +1,4 @@
+// Creates, checks, and revokes expiring login sessions.
 import { createHash, randomBytes } from "node:crypto";
 import type { Collection } from "mongodb";
 

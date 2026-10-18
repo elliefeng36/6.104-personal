@@ -13,5 +13,5 @@
       "@design/*": ["./design/*"]
     }
   },
-  "include": ["src", "generated.config.ts", "generated"]
+  "include": ["src", "web", "tests", "generated.config.ts", "generated"]
 }

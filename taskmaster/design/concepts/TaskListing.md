@@ -2,77 +2,90 @@
 
 ## Purpose
 
-Keeps track of a list of active tasks that users can add, delete, or complete so users can see what needs to be done. Also keeps a list of completed tasks so users can check to see if they've finished a task.
+Keep each user's active and completed tasks so they can track what remains to do.
 
 ## Principle
 
-Starting with an empty TaskList, users can add active tasks at any time; they can delete any active tasks; they can also mark active tasks as completed.
+Initialize an empty list for a user, then add tasks. Deleting an active task
+removes it; completing one moves it to completed tasks. Deleting or completing
+a task that is not active is refused without changing the list. Users' lists
+are independent. Initializing an existing list never resets it.
 
 ## Types
 
 ```types
 external User
-    The person who has a tasklist.
-
+  The owner of a task list, supplied by the application.
 external Task
-    The task that is being put in the tasklist.
+  An opaque task identity supplied by the application.
 ```
 
 ## State
 
 ```state
 a set of TaskLists with
-    an owner User
-    an activeTasks set of Tasks
-    a completedTasks set of Tasks
+  a unique owner User
+  an activeTasks set of Task
+  a completedTasks set of Task
+Rule: A task cannot be both active and completed in the same list.
 ```
 
 ## Actions
 
 ```actions
+initialize (owner: User) : returns (owner: User)
+  where owner has no list
+  then
+    create an empty task list for owner
+    returns owner
+  where owner already has a list
+  then
+    leave the list unchanged
+    returns owner
+
 addTask (owner: User, task: Task) : returns (task: Task)
-    where owner is in the set of Users
-    then
-        add the task to user's activeTasks
-        returns task
-    where owner is not in the set of Users
-    then
-        refuses NO_SUCH_USER "There is no such user."
+  where owner has no list
+  then
+    refuses NO_SUCH_USER "There is no such user."
+  where owner has a list and task is already active or completed
+  then
+    leave the list unchanged
+    returns task
+  where owner has a list and task is not listed
+  then
+    add task to owner's activeTasks
+    returns task
 
 deleteTask (owner: User, task: Task) : returns (task: Task)
-    where owner is in the set of Users and task is in owner's activeTasks
-    then
-        remove that task from owner's activeTasks
-        returns task
-    where owner is in the set of Users and task is not in owner's activeTasks
-    then
-        refuses NO_SUCH_TASK "There is no such task."
-    where owner is not in the set of Users
-    then
-        refuses NO_SUCH_USER "There is no such user."
+  where owner has no list
+  then
+    refuses NO_SUCH_USER "There is no such user."
+  where owner has a list and task is not active
+  then
+    refuses NO_SUCH_TASK "There is no such active task."
+  where task is active in owner's list
+  then
+    remove task from owner's activeTasks
+    returns task
 
 completeTask (owner: User, task: Task) : returns (task: Task)
-    where owner is in the set of Users and task is in owners activeTasks
-    then
-        remove task from owner's activeTasks
-        add task to owner's completedTasks
-        returns task
-    where owner is in the set of Users and task is not in owner's activeTasks
-    then
-        refuses NO_SUCH_TASK "There is no such task."
-    where owner is not in the set of Users
-    then
-        refuses NO_SUCH_USER "There is no such user."
+  where owner has no list
+  then
+    refuses NO_SUCH_USER "There is no such user."
+  where owner has a list and task is not active
+  then
+    refuses NO_SUCH_TASK "There is no such active task."
+  where task is active in owner's list
+  then
+    remove task from owner's activeTasks
+    add task to owner's completedTasks
+    returns task
 ```
 
 ## Queries
 
 ```queries
 _viewTasks (owner: User) : one (taskList: TaskList)
-    where owner is in the set of Users
-    then
-        return owner's TaskList.
-    where owner is not in the set of Users
-    then
-        refuses NO_SUCH_USER "There is no such user."
+  answers the owner's list, containing owner, activeTasks, and completedTasks
+  answers an empty list for an uninitialized owner without creating stored state
 ```

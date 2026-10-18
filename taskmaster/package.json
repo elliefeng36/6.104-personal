@@ -5,7 +5,8 @@
   "dependencies": {
     "@mit-sdg/sync-engine": "1.1.0",
     "@mit-sdg/sync-engine-http": "1.1.0",
-    "mongodb": "^7.7.0"
+    "mongodb": "^7.7.0",
+    "vue": "^3.5.44"
   },
   "devDependencies": {
     "typescript": ">=6 <7",
@@ -16,10 +17,11 @@
     "generate": "sync-engine artifacts pin",
     "check": "sync-engine check && sync-engine artifacts check && tsc --noEmit",
     "start": "bun src/main.ts",
-    "check:design": "sync-engine check-design design/concepts/*.md design/types.md design/compositions/*.md",
-    "dev": "bun run db:up && bun run --parallel dev:backend dev:frontend",
+    "check:design": "sync-engine check-design design/concepts/Authenticating.md design/concepts/Sessioning.md design/concepts/TaskListing.md design/auth-types.md design/compositions/Sessions.md design/compositions/TaskLists.md",
+    "test": "bun test",
+    "build:web": "bun build web/client.ts --target browser --outdir dist",
+    "dev": "bun --watch src/main.ts",
     "dev:backend": "bun --watch src/main.ts",
-    "dev:frontend": "bun --watch web/server.ts",
     "up": "podman compose up -d --build && bun scripts/check-api.ts http://127.0.0.1:8080 --wait",
     "down": "podman compose down",
     "logs": "podman compose logs backend frontend",

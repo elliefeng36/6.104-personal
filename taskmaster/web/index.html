@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Taskmaster</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 64px 20px; background: #f6f7f9; color: #202936; font-family: system-ui, sans-serif; }
+    main { max-width: 540px; margin: auto; padding: 28px; background: white; border: 1px solid #dde1e7; border-radius: 12px; }
+    h1 { margin: 0 0 24px; font-size: 26px; } h2 { font-size: 19px; }
+    fieldset { border: 0; padding: 0; margin: 0; }
+    label { display: block; margin: 16px 0 6px; }
+    input { width: 100%; padding: 10px; border: 1px solid #939eaf; border-radius: 6px; font: inherit; }
+    button { padding: 10px 16px; border: 0; border-radius: 6px; background: #2457bc; color: white; cursor: pointer; font: inherit; }
+    button[type=submit] { width: 100%; margin-top: 20px; }
+    button:disabled { opacity: .6; cursor: wait; }
+    .link { background: transparent; color: #2457bc; padding: 0; margin-top: 20px; text-decoration: underline; }
+    .hint { font-size: 13px; color: #556173; } .error { color: #a51e29; }
+    :focus-visible { outline: 3px solid #86b7ff; outline-offset: 3px; }
+    section { margin-top: 28px; border-top: 1px solid #dde1e7; padding-top: 12px; }
+    select { width: 100%; padding: 10px; font: inherit; border-radius: 6px; border: 1px solid #939eaf; }
+    .tasks { list-style: none; padding: 0; }
+    .tasks li { padding: 12px 0; border-bottom: 1px solid #e5e8ed; overflow-wrap: anywhere; }
+    .actions { display: flex; gap: 8px; margin-top: 8px; }
+    .delete { background: #a51e29; }
+    .completed { color: #556173; text-decoration: line-through; }
+  </style>
+</head>
+<body><div id="app"></div><noscript>Please enable JavaScript to log in.</noscript><script type="module" src="/app.js"></script></body>
+</html>

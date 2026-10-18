@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@mit-sdg/sync-engine": "1.1.0"
+  }
+}

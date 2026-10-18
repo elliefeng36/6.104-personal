@@ -65,3 +65,80 @@ and authenticated HTTP flows. Browser checks confirmed add, complete, delete,
 and persistence after reload. TypeScript, sync-engine design/artifact checks,
 and the browser build pass. The endpoint tests obtain the real registration
 cookie rather than assuming the framework's effective cookie name.
+
+## TaskSetting increment
+
+Plan: implement TaskSetting and verify name-only creation, all combinations of
+optional fields, invalid inputs, and subsequent changes; then compose task
+creation with TaskListing, join records in list responses, and replace the Vue
+sample selector with create/edit forms.
+
+TaskSetting owns stable UUID task identities and their details. TaskListing
+continues to own only memberships. The composition creates details and adds the
+returned identity to the active list; a former joins list identities to records
+using owner-filtered queries. Old dummy memberships without detail records are
+omitted without deleting historical data.
+
+Durations use minutes and recurring periods use days. Deadlines are stored as
+UTC ISO strings and shown/edited in local time. Creation treats absent or null
+optional fields as unset. Atomic edit patches leave omitted fields unchanged;
+null clears optional values and their flags. Only newly assigned deadlines must
+be future, allowing edits to other fields after a deadline has passed. The
+original specification was extended with name editing, duration removal, and
+multi-field edits. All setters and reads now explicitly take the owner so the
+concept enforces ownership without knowing about sessions.
+
+Validation: 66 tests pass, including all optional-field
+combinations, invalid dates/numbers/names, no partial edits on failure,
+individual setters/removers, ownership, persistence, and authenticated endpoint
+flows. Existing authentication and task-list tests still pass. The sync-engine
+design/artifact checks, TypeScript check, and browser build pass. Browser checks
+confirmed name-only creation and subsequent editing of name, deadline, duration,
+and recurrence. Recurring settings do not yet generate repeated task instances;
+TaskSuggesting and actual recurrence behavior remain future work.
+
+## sync-engine structure audit
+
+Reread the installed 1.1.0 design, authoring, public API, specification, and
+execution-semantics documentation. The concepts were independent and connected
+through composition. Corrected time handling to explicit flow instants supplied
+by now(instant), consolidated active bindings in design/types.md, separated
+unimplemented design drafts, and removed the browser's direct concept-type
+import in favor of generated wire types. Added architecture and timestamp
+regressions. See sync-engine-audit.md for the full review and remaining advisory
+diagnostics.
+
+## TaskSuggesting increment
+
+Plan: define deadline ranking and optional time-budget behavior, implement the
+concept with refusal/empty outcomes, test its rules against MongoDB, compose
+current task/list snapshots without peer concept calls, then add a Vue control
+for manual testing.
+
+TaskSuggesting stores requests and their latest chosen identity/outcome. It
+accepts a transient pool containing opaque task identities and ranking metadata.
+Unlike the original draft, it has no external TaskList whose fields it inspects.
+The application reads TaskListing and TaskSetting snapshots and joins them with
+a named pure computation. This is declared in the composition specification;
+TaskSuggesting does not import either peer. Candidate metadata is never persisted
+as copied state. Requests remain stored with their last result.
+
+No limit includes unknown durations; a limit excludes them, requires a finite
+nonnegative duration at most the available minutes, and includes an exact fit.
+Zero and fractional limits are valid. Ranking prefers earliest deadlines,
+including overdue ones, then undated tasks; addition order breaks ties. Empty
+candidate pools produce EMPTY_TASKLIST, while nonempty pools with no fitting
+candidate produce NO_VIABLE_TASKS. Both are successful empty results; malformed,
+negative, or nonfinite time limits are invalid requests.
+
+Vue offers an optional time-available field, a suggestion button, result details,
+and distinct inline validation/empty-result messages. Task edits and membership
+changes clear stale suggestions. Manual tests can use blank, exact-fit, zero,
+negative, nonnumeric, and too-small limits.
+
+Validation: all 96 tests pass (323 assertions), including 24 suggestion tests
+and the expanded concept-import boundary checks. Config-based sync-engine
+checking, generated artifacts, TypeScript, the design grammar check, and the
+browser build pass. Browser checks verified no-limit priority, exact-fit
+selection, empty-list feedback, no-fitting-task feedback, and inline invalid
+input feedback using a separate local demo account.

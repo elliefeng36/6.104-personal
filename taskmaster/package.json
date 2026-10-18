@@ -17,7 +17,7 @@
     "generate": "sync-engine artifacts pin",
     "check": "sync-engine check && sync-engine artifacts check && tsc --noEmit",
     "start": "bun src/main.ts",
-    "check:design": "sync-engine check-design design/concepts/Authenticating.md design/concepts/Sessioning.md design/concepts/TaskListing.md design/auth-types.md design/compositions/Sessions.md design/compositions/TaskLists.md",
+    "check:design": "sync-engine check-design design/concepts/*.md design/types.md design/compositions/*.md",
     "test": "bun test",
     "build:web": "bun build web/client.ts --target browser --outdir dist",
     "dev": "bun --watch src/main.ts",

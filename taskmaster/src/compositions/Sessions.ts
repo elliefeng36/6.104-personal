@@ -6,6 +6,7 @@
  * Sessioning holds an opaque session for an external subject. Neither names the
  * other; the adaptation lives here.
  */
+import { now } from "@mit-sdg/sync-engine/language";
 import { endpoint, receive, respond } from "@mit-sdg/sync-engine/boundary";
 
 import { concepts } from "../concepts.ts";
@@ -21,10 +22,11 @@ const { Authenticating, Sessioning } = concepts;
 
 const Register = endpoint(
   "/auth/register",
-  ({ username, password, account, session, expiresAt }) =>
+  ({ username, password, account, session, expiresAt, instant }) =>
     receive({ username, password })
+      .where(now(instant))
       .then(Authenticating.register({ username, password }).responds({ account }))
-      .then(Sessioning.start({ subject: account }).responds({ session, expiresAt }))
+      .then(Sessioning.start({ subject: account, instant }).responds({ session, expiresAt }))
       .then(respond({ account, session, expiresAt })),
   {
     input: { required: ["username", "password"] },
@@ -34,10 +36,11 @@ const Register = endpoint(
 
 const SignIn = endpoint(
   "/auth/sign-in",
-  ({ username, password, account, session, expiresAt }) =>
+  ({ username, password, account, session, expiresAt, instant }) =>
     receive({ username, password })
+      .where(now(instant))
       .then(Authenticating.authenticate({ username, password }).responds({ account }))
-      .then(Sessioning.start({ subject: account }).responds({ session, expiresAt }))
+      .then(Sessioning.start({ subject: account, instant }).responds({ session, expiresAt }))
       .then(respond({ account, session, expiresAt })),
   {
     input: { required: ["username", "password"] },
@@ -47,9 +50,10 @@ const SignIn = endpoint(
 
 const CurrentUser = endpoint(
   "/auth/current",
-  ({ session, username }) =>
+  ({ session, instant, username }) =>
     receive({ session })
-      .then(Sessioning.current({ session }).responds({ subject: username }))
+      .where(now(instant))
+      .then(Sessioning.current({ session, instant }).responds({ subject: username }))
       .then(respond({ username })),
   {
     input: { required: ["session"] },
@@ -59,9 +63,10 @@ const CurrentUser = endpoint(
 
 const SignOut = endpoint(
   "/auth/sign-out",
-  ({ session, signedOut }) =>
+  ({ session, instant, signedOut }) =>
     receive({ session })
-      .then(Sessioning.end({ session }).responds({ ended: signedOut }))
+      .where(now(instant))
+      .then(Sessioning.end({ session, instant }).responds({ ended: signedOut }))
       .then(respond({ signedOut })),
   {
     input: { required: ["session"] },

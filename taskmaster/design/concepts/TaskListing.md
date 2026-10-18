@@ -88,4 +88,8 @@ completeTask (owner: User, task: Task) : returns (task: Task)
 _viewTasks (owner: User) : one (taskList: TaskList)
   answers the owner's list, containing owner, activeTasks, and completedTasks
   answers an empty list for an uninitialized owner without creating stored state
+_active (owner: User) : many (task: Task)
+  answers active task identities in addition order, or no rows for an uninitialized owner
+_completed (owner: User) : many (task: Task)
+  answers completed task identities in completion order, or no rows for an uninitialized owner
 ```

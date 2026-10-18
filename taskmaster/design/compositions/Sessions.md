@@ -3,6 +3,11 @@
 Sessions connect accepted account credentials to opaque, independently expiring
 application sessions.
 
+Every endpoint binds the framework-owned flow instant with now(instant) and
+supplies it to Sessioning. Session expiry is compared against this explicit
+instant, rather than an independently read concept clock. Clients cannot
+choose the timestamp.
+
 Registration [establishes a new account and starts a session](reaction:Sessions.EnteringApplication.Register)
 for the returned account reference, which is that account's username.
 [Sign-in](reaction:Sessions.EnteringApplication.SignIn) proves an existing account's

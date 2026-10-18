@@ -63,23 +63,23 @@ describe("Authenticating with MongoDB", () => {
 describe("Sessioning with MongoDB", () => {
   test("persists hashed tokens, expires sessions, and rejects invented tokens", async () => {
     let now = new Date();
-    const sessions = new SessioningConcept(database.collection("sessions"), () => now);
-    const issued = await sessions.start({ subject: "alice" });
+    const sessions = new SessioningConcept(database.collection("sessions"));
+    const issued = await sessions.start({ instant: now, subject: "alice" });
     const saved = await database.collection("sessions").findOne({ subject: "alice" });
     expect(saved?.tokenHash).not.toBe(issued.session);
-    expect(await storage.Sessioning.current({ session: issued.session })).toEqual({ subject: "alice" });
-    await expect(sessions.current({ session: "invented" })).rejects.toBeInstanceOf(UnknownSession);
+    expect(await storage.Sessioning.current({ instant: new Date(), session: issued.session })).toEqual({ subject: "alice" });
+    await expect(sessions.current({ instant: now, session: "invented" })).rejects.toBeInstanceOf(UnknownSession);
     now = issued.expiresAt;
-    expect(await sessions._active({ session: issued.session })).toEqual([]);
-    await expect(sessions.current({ session: issued.session })).rejects.toBeInstanceOf(UnknownSession);
+    expect(await sessions._active({ instant: now, session: issued.session })).toEqual([]);
+    await expect(sessions.current({ instant: now, session: issued.session })).rejects.toBeInstanceOf(UnknownSession);
   });
 
   test("logout revokes only the presented session", async () => {
-    const first = await storage.Sessioning.start({ subject: "alice" });
-    const second = await storage.Sessioning.start({ subject: "alice" });
-    await storage.Sessioning.end({ session: first.session });
-    await expect(storage.Sessioning.current({ session: first.session })).rejects.toBeInstanceOf(UnknownSession);
-    expect(await storage.Sessioning.current({ session: second.session })).toEqual({ subject: "alice" });
+    const first = await storage.Sessioning.start({ instant: new Date(), subject: "alice" });
+    const second = await storage.Sessioning.start({ instant: new Date(), subject: "alice" });
+    await storage.Sessioning.end({ instant: new Date(), session: first.session });
+    await expect(storage.Sessioning.current({ instant: new Date(), session: first.session })).rejects.toBeInstanceOf(UnknownSession);
+    expect(await storage.Sessioning.current({ instant: new Date(), session: second.session })).toEqual({ subject: "alice" });
   });
 });
 

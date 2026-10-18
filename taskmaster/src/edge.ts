@@ -13,6 +13,12 @@ export function authenticationPolicy(publicOrigin: string) {
       UNKNOWN_SESSION: "UNAUTHORIZED",
       NO_SUCH_USER: "NOT_FOUND",
       NO_SUCH_TASK: "NOT_FOUND",
+      EMPTY_NAME: "INVALID_REQUEST",
+      INVALID_DEADLINE: "INVALID_REQUEST",
+      INVALID_DURATION: "INVALID_REQUEST",
+      INVALID_RECURRING_PERIOD: "INVALID_REQUEST",
+      INVALID_TIME_LIMIT: "INVALID_REQUEST",
+      UNKNOWN_SUGGEST_REQUEST: "NOT_FOUND",
     },
     cookies: {
       session: {

@@ -48,6 +48,16 @@ export class TaskListingConcept {
     return { taskList: { owner, activeTasks: found?.activeTasks ?? [], completedTasks: found?.completedTasks ?? [] } };
   }
 
+  async _active({ owner }: { owner: string }): Promise<Array<{ task: string }>> {
+    const found = await this.store.findOne({ owner });
+    return (found?.activeTasks ?? []).map(task => ({ task }));
+  }
+
+  async _completed({ owner }: { owner: string }): Promise<Array<{ task: string }>> {
+    const found = await this.store.findOne({ owner });
+    return (found?.completedTasks ?? []).map(task => ({ task }));
+  }
+
   async #refuseMissing(owner: string): Promise<never> {
     if (!(await this.store.findOne({ owner }))) throw new NoSuchUser("There is no such user.");
     throw new NoSuchTask("There is no such active task.");

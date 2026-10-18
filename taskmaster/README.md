@@ -1,6 +1,6 @@
 # Taskmaster
 
-This increment implements authentication and per-user task lists with
+This increment implements authentication, task creation/editing, per-user task lists, and suggestions with
 sync-engine 1.1.0, MongoDB, and a small Vue 3 frontend.
 
 ## Run locally
@@ -15,12 +15,27 @@ From `taskmaster/`:
 
 Choose **New here? Create an account**, then log out and log back in. Reloading
 the page restores an unexpired session. Usernames are case-sensitive.
-After login, choose a fixed sample task and select **Add sample task**. Active
-tasks have **Complete** and **Delete** buttons. Completed tasks remain visible
-without action buttons. Lists persist across reloads and server restarts.
-These are dummy Task identities; TaskSetting and task creation/editing are still
-future work. Adding an already active or completed sample does not duplicate or
-reactivate it. A deleted sample can be added again.
+After login, enter a name and select **Create task**. Deadline, duration in
+minutes, and recurring period in days are optional. Active tasks have **Edit**,
+**Complete**, and **Delete** buttons. Editing uses the same form; blank optional
+fields clear their values. Completed tasks remain visible and can also be edited.
+Task details and lists persist across reloads and server restarts.
+Recurring settings are stored; automatic regeneration of recurring tasks is
+future work. Former dummy memberships are hidden without modifying stored lists.
+
+Use **Suggest a task** above the task form for manual testing:
+
+- Leave the time available blank to consider every active task.
+- Enter minutes to consider only known durations that fit (an exact fit counts).
+- Zero considers only tasks with duration zero. Unknown durations require no limit.
+- The earliest deadline wins; overdue tasks come first, undated tasks last, and
+  addition order breaks ties.
+- An empty list and a list with no fitting tasks show different helpful messages.
+- Negative or nonnumeric input shows an error directly below the suggestion button.
+
+Suggestions do not complete or modify tasks. Editing, deleting, or completing a
+task changes subsequent suggestions. Clear the time limit to test the no-limit
+case again. Only your own active tasks are considered.
 `bun run dev` restarts the server when source files change; reload the browser
 after frontend changes. The backend serves both the frontend and `/api`.
 
@@ -44,11 +59,24 @@ client, so session tokens stay out of JavaScript storage and JSON responses.
 
 `src/concepts/TaskListing.ts` maintains separate active and completed task sets
 for each owner. `src/compositions/TaskLists.ts` resolves owners from sessions,
-then composes list viewing, adding, deleting, and completing. The concept treats
-Tasks as opaque strings; only the application restricts additions to dummy tasks
-defined in `src/dummy-tasks.ts`. Completion/deletion use atomic MongoDB updates.
+then composes list viewing, deleting, and completing. The concept treats
+Tasks as opaque identities. Completion/deletion use atomic MongoDB updates.
+`src/concepts/TaskSetting.ts` owns the real Task records, validates their fields,
+and applies atomic edits. `src/compositions/Tasks.ts` connects creation to list
+membership and exposes owner-checked edits. The list former joins memberships
+to TaskSetting details instead of displaying placeholder identities.
 
-The checked design selects authentication, sessions, and TaskListing through
-`design/auth-types.md`. TaskSetting and TaskSuggesting remain drafts until their
-implementations are added. Public origin defaults to `http://localhost:3000`;
+`src/concepts/TaskSuggesting.ts` owns suggestion requests and ranks a supplied
+candidate snapshot. `src/compositions/TaskSuggestions.ts` reads owner-filtered
+task details and list memberships, then uses the pure computation in
+`suggestion-candidates.ts` to join them. The suggesting concept never reads
+another concept's collection or imports its implementation. MongoDB retains
+request constraints/outcomes and chosen identities, without copying task metadata.
+
+The checked design selects all five implemented concepts through `design/types.md`.
+Earlier specifications and the original type inventory are preserved under
+`design/drafts/` and are not checked as part of the assembled application.
+Time-dependent concept operations take an explicit flow instant supplied by
+composition through sync-engine's `now(...)`, rather than reading their own clocks.
+Public origin defaults to `http://localhost:3000`;
 set `PORT`, `HOST`, and `PUBLIC_ORIGIN` consistently if using another address.

@@ -10,7 +10,7 @@ can end without changing that subject's identity.
 Ari starts a session for subject `ari`. Before the session expires, `_active`
 returns a row whose subject is `ari`, and `current` resolves the session to
 `ari`. Ending the session makes it unknown, so another `current` call is
-refused. An invented or expired session is refused in the same way, and
+refused. An invented or expired at instant session is refused in the same way, and
 `_active` returns no row for it.
 
 ## Types
@@ -31,15 +31,15 @@ a set of Sessions with
 ## Actions
 
 ```actions
-start (subject: Subject) : returns (session: Session, expiresAt: DateTime)
+start (subject: Subject, instant: DateTime) : returns (session: Session, expiresAt: DateTime)
   where true
   then
     delete every expired session
-    add a new opaque session for subject expiring 30 minutes from now
+    add a new opaque session for subject expiring 30 minutes after instant
     returns session, expiresAt
 
-current (session: Session) : returns (subject: Subject)
-  where session is unknown, ended, or expired
+current (session: Session, instant: DateTime) : returns (subject: Subject)
+  where session is unknown, ended, or expired at instant
   then
     refuses UNKNOWN_SESSION "This session is not active."
   where session is active
@@ -47,8 +47,8 @@ current (session: Session) : returns (subject: Subject)
     bind subject to the Session's subject
     returns subject
 
-end (session: Session) : returns (ended: Flag)
-  where session is unknown, ended, or expired
+end (session: Session, instant: DateTime) : returns (ended: Flag)
+  where session is unknown, ended, or expired at instant
   then
     refuses UNKNOWN_SESSION "This session is not active."
   where session is active
@@ -61,7 +61,7 @@ end (session: Session) : returns (ended: Flag)
 ## Queries
 
 ```queries
-_active (session: Session) : optional (subject: Subject, expiresAt: DateTime)
-  answers no row for an unknown, ended, or expired Session
+_active (session: Session, instant: DateTime) : optional (subject: Subject, expiresAt: DateTime)
+  answers no row for an unknown, ended, or expired at instant Session
   does not delete an expired Session
 ```

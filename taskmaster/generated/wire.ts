@@ -55,15 +55,15 @@ export type TaskmasterWire = {
     };
     error: { error: AppWideError | "INVALID_INPUT" | "UNKNOWN_SESSION" };
   };
-  "/tasklists/add": {
+  "/taskSuggestions/makeRequest": {
     input: {
       "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
-      "task": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskListing"]["addTask"]>[0], ["task"]>>;
+      "timeLimit"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSuggesting"]["makeRequest"]>[0], ["timeLimit"]>>;
     };
     output: {
-      "task": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskListing"]["addTask"]>[0], ["task"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskListing"]["addTask"]>>, ["task"]>]>>;
+      "suggestion": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskSuggesting"]["makeSuggestion"]>>, ["suggestion"]>>;
     };
-    error: { error: AppWideError | "INVALID_INPUT" | "NO_SUCH_USER" | "UNKNOWN_SESSION" };
+    error: { error: AppWideError | "INVALID_INPUT" | "INVALID_TIME_LIMIT" | "UNKNOWN_SESSION" | "UNKNOWN_SUGGEST_REQUEST" };
   };
   "/tasklists/complete": {
     input: {
@@ -91,10 +91,39 @@ export type TaskmasterWire = {
     };
     output: {
       "list": {
-        "taskList": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskListing"]["_viewTasks"]>>>, ["taskList"]>>;
+        "activeTasks": {
+          "details": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["_get"]>>>, ["details"]>>;
+        }[];
+        "completedTasks": {
+          "details": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["_get"]>>>, ["details"]>>;
+        }[];
       };
     };
     error: { error: AppWideError | "INVALID_INPUT" | "UNKNOWN_SESSION" };
+  };
+  "/tasks/make": {
+    input: {
+      "deadline"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["makeTask"]>[0], ["deadline"]>>;
+      "duration"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["makeTask"]>[0], ["duration"]>>;
+      "name": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["makeTask"]>[0], ["name"]>>;
+      "recurringPeriod"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["makeTask"]>[0], ["recurringPeriod"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
+    };
+    output: {
+      "task": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskListing"]["addTask"]>[0], ["task"]>>;
+    };
+    error: { error: AppWideError | "EMPTY_NAME" | "INVALID_DEADLINE" | "INVALID_DURATION" | "INVALID_INPUT" | "INVALID_RECURRING_PERIOD" | "NO_SUCH_USER" | "UNKNOWN_SESSION" };
+  };
+  "/tasks/update": {
+    input: {
+      "changes": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>[0], ["changes"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
+      "task": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>[0], ["task"]>>;
+    };
+    output: {
+      "task": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>[0], ["task"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>>, ["task"]>]>>;
+    };
+    error: { error: AppWideError | "EMPTY_NAME" | "INVALID_DEADLINE" | "INVALID_DURATION" | "INVALID_INPUT" | "INVALID_RECURRING_PERIOD" | "NO_SUCH_TASK" | "UNKNOWN_SESSION" };
   };
 };
 
@@ -135,12 +164,12 @@ export type TaskmasterWireHttp = {
     };
     error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
   };
-  "/tasklists/add": {
+  "/taskSuggestions/makeRequest": {
     input: {
-      "task": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskListing"]["addTask"]>[0], ["task"]>>;
+      "timeLimit"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSuggesting"]["makeRequest"]>[0], ["timeLimit"]>>;
     };
     output: {
-      "task": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskListing"]["addTask"]>[0], ["task"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskListing"]["addTask"]>>, ["task"]>]>>;
+      "suggestion": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskSuggesting"]["makeSuggestion"]>>, ["suggestion"]>>;
     };
     error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
   };
@@ -166,9 +195,36 @@ export type TaskmasterWireHttp = {
     input: Record<string, never>;
     output: {
       "list": {
-        "taskList": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskListing"]["_viewTasks"]>>>, ["taskList"]>>;
+        "activeTasks": {
+          "details": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["_get"]>>>, ["details"]>>;
+        }[];
+        "completedTasks": {
+          "details": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["_get"]>>>, ["details"]>>;
+        }[];
       };
     };
     error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/tasks/make": {
+    input: {
+      "deadline"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["makeTask"]>[0], ["deadline"]>>;
+      "duration"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["makeTask"]>[0], ["duration"]>>;
+      "name": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["makeTask"]>[0], ["name"]>>;
+      "recurringPeriod"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["makeTask"]>[0], ["recurringPeriod"]>>;
+    };
+    output: {
+      "task": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskListing"]["addTask"]>[0], ["task"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/tasks/update": {
+    input: {
+      "changes": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>[0], ["changes"]>>;
+      "task": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>[0], ["task"]>>;
+    };
+    output: {
+      "task": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>[0], ["task"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>>, ["task"]>]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
   };
 };

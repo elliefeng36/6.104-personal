@@ -7,12 +7,11 @@ returns the result. The browser may send an optional timeLimit in minutes; it
 cannot supply a user, request identity, candidate pool, or flow timestamp.
 
 The [candidate computation](computation:suggestionCandidates) joins only the user's active TaskListing identities with
-owner-filtered TaskSetting records. Completed, deleted, missing, other users',
-and legacy dummy tasks are excluded. TaskSuggesting receives a transient
+owner-filtered TaskSetting records. Completed, deleted, missing, and other users' tasks are excluded. TaskSuggesting receives a transient
 snapshot and never imports, calls, or queries those concepts itself.
 
 ```computations
-suggestionCandidates(taskList: TaskListing.TaskList, records: TaskSetting.TaskRecords) : TaskSuggesting.CandidatePool
+suggestionCandidates(taskList: TaskListing.TaskList, records: TaskSetting.TaskRecords, recurring: String, maxDuration: Number) : TaskSuggesting.CandidatePool
   Joins active memberships to owner-filtered detail records in addition order and projects only identity, deadline, and duration into a transient pool.
 ```
 
@@ -28,3 +27,8 @@ retained in MongoDB, but no candidate metadata is copied there.
 ```endpoints
 TaskSuggestions.MakeRequest at /taskSuggestions/makeRequest
 ```
+
+Suggestion requests accept the same recurrence and maximum-duration filters as the
+list view, defaulting to all tasks and no maximum. The candidate computation uses
+the shared application predicate before projecting task metadata. An empty filtered
+list produces EMPTY_TASKLIST, so hidden tasks cannot appear as suggestions.

@@ -13,6 +13,9 @@ export default {
     new URL("./design/compositions/TaskLists.md", import.meta.url),
     new URL("./design/compositions/Tasks.md", import.meta.url),
     new URL("./design/compositions/TaskSuggestions.md", import.meta.url),
+    new URL("./design/compositions/Recurrences.md", import.meta.url),
+    new URL("./design/compositions/TaskSorting.md", import.meta.url),
+    new URL("./design/compositions/TaskFiltering.md", import.meta.url),
   ] },
   projections: [httpWire({ policy, name: "TaskmasterWireHttp" })],
 };

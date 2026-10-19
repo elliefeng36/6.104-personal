@@ -1,7 +1,7 @@
 # Implemented application types
 
 This application selects authentication, sessions, task listing, task setting,
-and task suggesting. Earlier unimplemented drafts remain under drafts/ for history.
+task suggesting, task sorting, and task filtering.
 Sessions identify the account username established by accepted credentials.
 
 ```instances
@@ -19,5 +19,10 @@ instantiate TaskSetting with
 
 instantiate TaskSuggesting with
   User is Authenticating.Account
+  Task is TaskSetting.Task
+instantiate TaskSorting with
+  Task is TaskSetting.Task
+
+instantiate TaskFiltering with
   Task is TaskSetting.Task
 ```

@@ -2,7 +2,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { MongoClient } from "mongodb";
 import { TaskSuggestingConcept, InvalidTimeLimit, UnknownSuggestRequest, type CandidatePool, type SuggestRequest } from "../src/concepts/TaskSuggesting.ts";
-import { authenticationStorage } from "../src/storage.ts";
+import { applicationStorage } from "../src/storage.ts";
 import { assembleApplication } from "../src/assembly.ts";
 import { createGateway } from "@mit-sdg/sync-engine/boundary";
 import { createHttpHandler } from "@mit-sdg/sync-engine-http/handler";
@@ -12,13 +12,13 @@ const url = process.env.TEST_MONGODB_URL ?? process.env.MONGODB_URL;
 if (!url) throw new Error("Set TEST_MONGODB_URL or MONGODB_URL to run MongoDB tests.");
 const mongo = new MongoClient(url, { serverSelectionTimeoutMS: 5000 });
 const database = mongo.db(`taskmaster_suggest_test_${crypto.randomUUID().replaceAll("-", "")}`);
-let storage: Awaited<ReturnType<typeof authenticationStorage>>;
+let storage: Awaited<ReturnType<typeof applicationStorage>>;
 let suggesting: TaskSuggestingConcept;
 const owner = "alice";
 const earlier = "2099-01-01T12:00:00.000Z", later = "2099-02-01T12:00:00.000Z";
 const pool = (...details: CandidatePool["entries"][number]["details"][]): CandidatePool => ({ entries: details.map(details => ({ details })) });
 beforeAll(async () => {
-  await mongo.connect(); storage = await authenticationStorage(database); suggesting = storage.TaskSuggesting;
+  await mongo.connect(); storage = await applicationStorage(database); suggesting = storage.TaskSuggesting;
 }, 10000);
 beforeEach(async () => {
   await Promise.all(["suggestRequests", "tasks", "taskLists", "accounts", "sessions"].map(name => database.collection(name).deleteMany({})));
@@ -173,5 +173,62 @@ describe("Authenticated suggestion composition", () => {
     await storage.TaskListing.addTask({ owner, task: "z-first" });
     await storage.TaskListing.addTask({ owner, task: "a-second" });
     expect((await (await handle(post(path, {}, cookie))).json()).suggestion.task).toBe("z-first");
+  });
+});
+
+
+describe("TaskSuggesting repeated actions and rejection atomicity", () => {
+  test("re-evaluates a request through suggested, no-fit, empty, and suggested outcomes", async () => {
+    const { request } = await suggesting.makeRequest({ user: owner, timeLimit: 10 });
+    const candidates = pool({ task: "short", duration: 10 });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      expect(await suggesting.makeSuggestion({ request, pool: candidates })).toEqual({ suggestion: { task: "short", outcome: "SUGGESTED" } });
+    }
+    expect(await suggesting.makeSuggestion({ request, pool: pool({ task: "long", duration: 11 }) })).toEqual({ suggestion: { task: null, outcome: "NO_VIABLE_TASKS" } });
+    expect(await database.collection("suggestRequests").findOne({ request })).not.toHaveProperty("suggestedTask");
+    expect(await suggesting.makeSuggestion({ request, pool: pool() })).toEqual({ suggestion: { task: null, outcome: "EMPTY_TASKLIST" } });
+    expect(await suggesting.makeSuggestion({ request, pool: candidates })).toEqual({ suggestion: { task: "short", outcome: "SUGGESTED" } });
+    expect(await database.collection("suggestRequests").countDocuments()).toBe(1);
+    expect(candidates).toEqual(pool({ task: "short", duration: 10 }));
+  });
+  test("rejections preserve existing requests and their successful results", async () => {
+    const { request } = await suggesting.makeRequest({ user: owner });
+    await suggesting.makeSuggestion({ request, pool: pool({ task: "keep" }) });
+    const before = await database.collection("suggestRequests").find({}).toArray();
+    await expect(suggesting.makeRequest({ user: owner, timeLimit: -1 })).rejects.toBeInstanceOf(InvalidTimeLimit);
+    expect(await database.collection("suggestRequests").find({}).toArray()).toEqual(before);
+    await expect(suggesting.makeSuggestion({ request: "unknown", pool: pool({ task: "replace" }) })).rejects.toBeInstanceOf(UnknownSuggestRequest);
+    expect(await database.collection("suggestRequests").find({}).toArray()).toEqual(before);
+  });
+});
+
+
+describe("Suggestions respect the displayed task filters", () => {
+  test("a hidden hello task is not suggested when recurring-only has no active matches", async () => {
+    const handle = handler(), cookie = await login(owner);
+    const hello = await make(cookie, { name: "hello", deadline: earlier });
+    const response = await handle(post(path, { timeLimit: 2, recurring: "recurring", maxDuration: 15 }, cookie));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ suggestion: { task: null, outcome: "EMPTY_TASKLIST" } });
+    expect(await (await handle(post(path, {}, cookie))).json()).toEqual({ suggestion: { task: hello, outcome: "SUGGESTED" } });
+    await handle(post("/tasklists/complete", { task: hello }, cookie));
+    expect(await (await handle(post(path, {}, cookie))).json()).toEqual({ suggestion: { task: null, outcome: "EMPTY_TASKLIST" } });
+  });
+  test("combines recurrence, maximum duration, and available time using current task state", async () => {
+    const handle = handler(), cookie = await login(owner);
+    const long = await make(cookie, { name: "Long recurring", duration: 20, deadline: earlier });
+    const short = await make(cookie, { name: "Short recurring", duration: 5 });
+    const unknown = await make(cookie, { name: "Unestimated" });
+    for (const task of [long, short]) await handle(post("/tasks/update", { task, changes: { recurringPeriod: 7 } }, cookie));
+    const result = async (options: object) => (await (await handle(post(path, options, cookie))).json()).suggestion;
+    expect(await result({ recurring: "recurring", maxDuration: 10 })).toEqual({ task: short, outcome: "SUGGESTED" });
+    expect(await result({ recurring: "recurring", maxDuration: 10, timeLimit: 2 })).toEqual({ task: null, outcome: "NO_VIABLE_TASKS" });
+    expect(await result({ recurring: "nonrecurring", maxDuration: 0, timeLimit: 0 })).toEqual({ task: unknown, outcome: "SUGGESTED" });
+    expect(await result({ recurring: "recurring", maxDuration: 0 })).toEqual({ task: null, outcome: "EMPTY_TASKLIST" });
+    const before = await database.collection("suggestRequests").find({}).toArray();
+    for (const options of [{ recurring: "invalid" }, { maxDuration: -1 }, { maxDuration: "5" }]) {
+      expect((await handle(post(path, options, cookie))).status).toBe(400);
+      expect(await database.collection("suggestRequests").find({}).toArray()).toEqual(before);
+    }
   });
 });

@@ -68,6 +68,19 @@ deleteTask (owner: User, task: Task) : returns (task: Task)
     remove task from owner's activeTasks
     returns task
 
+reopenTask (owner: User, task: Task) : returns (task: Task)
+  where owner has no list
+  then
+    refuses NO_SUCH_USER "There is no such user."
+  where task is completed in owner's list
+  then
+    remove task from completedTasks and add it to activeTasks
+    returns task
+  where task is already active or absent from owner's list
+  then
+    leave the list unchanged
+    returns task
+
 completeTask (owner: User, task: Task) : returns (task: Task)
   where owner has no list
   then

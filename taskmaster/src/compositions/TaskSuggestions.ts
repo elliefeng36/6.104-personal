@@ -5,9 +5,11 @@ import { concepts, computations } from "../concepts.ts";
 import { hasOnly, record, validator } from "./validators.ts";
 
 const { Sessioning, TaskListing, TaskSetting, TaskSuggesting } = concepts;
-const input = validator(value => hasOnly(value, ["session", "timeLimit"]) &&
+const input = validator(value => hasOnly(value, ["session", "timeLimit", "recurring", "maxDuration"]) &&
   (typeof value.session === "string" || value.session === null) &&
-  (value.timeLimit === null || typeof value.timeLimit === "number"),
+  (value.timeLimit === null || typeof value.timeLimit === "number") &&
+  ["all", "recurring", "nonrecurring"].includes(value.recurring as string) &&
+  (value.maxDuration === null || typeof value.maxDuration === "number" && Number.isFinite(value.maxDuration) && value.maxDuration >= 0),
 "Time limit must be a number of minutes, or blank for no limit.");
 const output = validator(value => {
   if (!hasOnly(value, ["suggestion"]) || !record(value.suggestion) || !hasOnly(value.suggestion, ["task", "outcome"])) return false;
@@ -16,18 +18,18 @@ const output = validator(value => {
     result.task === null && (result.outcome === "EMPTY_TASKLIST" || result.outcome === "NO_VIABLE_TASKS");
 }, "A suggestion or an explicit empty outcome is required.");
 
-const MakeRequest = endpoint("/taskSuggestions/makeRequest", ({ session, instant, user, timeLimit, request, suggestion, taskList, records, pool }) =>
-  receive({ session, timeLimit })
+const MakeRequest = endpoint("/taskSuggestions/makeRequest", ({ session, instant, user, timeLimit, recurring, maxDuration, request, suggestion, taskList, records, pool }) =>
+  receive({ session, timeLimit, recurring, maxDuration })
     .where(now(instant))
     .then(Sessioning.current({ session, instant }).responds({ subject: user }))
     .then(TaskSuggesting.makeRequest({ user, timeLimit }).responds({ request }))
     .then(where(
       TaskListing._viewTasks({ owner: user }).is({ taskList }),
       TaskSetting._forOwner({ owner: user }).is({ records }),
-      compute(computations.suggestionCandidates, { taskList, records }, pool),
+      compute(computations.suggestionCandidates, { taskList, records, recurring, maxDuration }, pool),
     )
     .then(TaskSuggesting.makeSuggestion({ request, pool }).responds({ suggestion }))
     .then(respond({ suggestion }))),
-  { input: { required: ["session"], defaults: { timeLimit: null } }, validators: { input, output } },
+  { input: { required: ["session"], defaults: { timeLimit: null, recurring: "all", maxDuration: null } }, validators: { input, output } },
 );
 export const composition = { MakeRequest };

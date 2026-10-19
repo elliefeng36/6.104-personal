@@ -16,12 +16,18 @@ From `taskmaster/`:
 Choose **New here? Create an account**, then log out and log back in. Reloading
 the page restores an unexpired session. Usernames are case-sensitive.
 After login, enter a name and select **Create task**. Deadline, duration in
-minutes, and recurring period in days are optional. Active tasks have **Edit**,
-**Complete**, and **Delete** buttons. Editing uses the same form; blank optional
-fields clear their values. Completed tasks remain visible and can also be edited.
+minutes, and recurrence settings are optional. Active tasks have **Edit**,
+**Complete**, and **Delete** buttons. Deletion asks for confirmation before sending a request. Editing uses the same form; blank optional
+fields clear their values. Completed tasks remain visible and cannot be edited.
 Task details and lists persist across reloads and server restarts.
-Recurring settings are stored; automatic regeneration of recurring tasks is
-future work. Former dummy memberships are hidden without modifying stored lists.
+Recurring tasks follow a schedule anchored when recurrence is enabled or changed, independent of completion. Choose daily, weekly, calendar monthly, or a custom number of days. Unfinished tasks remain one active entry. The same task ID is reused, and its deadline advances by whole
+recurring periods until it is future. Tasks without deadlines gain no deadline.
+Days are 24-hour intervals. Completed tasks display their scheduled return time.
+The server checks every second and catches up after restart; the browser checks
+for updated lists every five seconds. Stop recurrence by selecting **Does not repeat**. Deleting an active task does not schedule a return.
+
+For a quick recurrence test, use `0.0001` days (about 8.6 seconds), create a task
+with a future deadline, complete it, and watch it return with a later deadline.
 
 Use **Suggest a task** above the task form for manual testing:
 
@@ -48,6 +54,9 @@ after frontend changes. The backend serves both the frontend and `/api`.
   temporary database, deleted afterward. Use `TEST_MONGODB_URL` to select a
   separate test server; otherwise tests use `MONGODB_URL`.
 
+The latest saved P3 test execution is in `../P3/test-output.txt`; the action coverage
+map is in `../P3/concept-tests.md`.
+
 ## Structure
 
 `src/concepts/Authenticating.ts` stores Argon2id password verifiers;
@@ -73,10 +82,29 @@ task details and list memberships, then uses the pure computation in
 another concept's collection or imports its implementation. MongoDB retains
 request constraints/outcomes and chosen identities, without copying task metadata.
 
-The checked design selects all five implemented concepts through `design/types.md`.
-Earlier specifications and the original type inventory are preserved under
-`design/drafts/` and are not checked as part of the assembled application.
+`src/recurrences.ts` drives due TaskSetting occurrences. Re-adding to TaskListing
+and acknowledging the cycle are sync-engine reactions in
+`src/compositions/Recurrences.ts`. Persisted pending cycles make retries
+idempotent: they cannot shift a deadline twice or duplicate a task in the list.
+
+The checked design selects all seven implemented concepts through `design/types.md`.
 Time-dependent concept operations take an explicit flow instant supplied by
 composition through sync-engine's `now(...)`, rather than reading their own clocks.
 Public origin defaults to `http://localhost:3000`;
 set `PORT`, `HOST`, and `PUBLIC_ORIGIN` consistently if using another address.
+
+### Sorting and filtering
+
+The task-list controls sort both Active and Completed tasks by earliest due date
+or shortest estimated duration. Missing values sort last; ties preserve membership
+order. Original order restores the list's existing order.
+
+Filters combine all/recurring/nonrecurring tasks with an optional inclusive maximum
+duration in minutes. Missing duration estimates count as zero for filtering.
+Filtering and sorting only change the displayed results, never stored tasks or
+list membership. Suggestions use the same recurrence and maximum-duration filters.
+
+TaskSorting and TaskFiltering are generic, stateless concepts accepting an external
+Task array and a callable comparator or predicate. Their compositions authenticate
+the user, supply owner-scoped task snapshots, and choose the application policies.
+The browser sends named options rather than executable functions or task records.

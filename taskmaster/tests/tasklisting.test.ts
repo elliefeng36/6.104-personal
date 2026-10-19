@@ -5,23 +5,22 @@ import { createGateway } from "@mit-sdg/sync-engine/boundary";
 import { createHttpHandler } from "@mit-sdg/sync-engine-http/handler";
 import { assembleApplication } from "../src/assembly.ts";
 import { authenticationPolicy } from "../src/edge.ts";
-import { authenticationStorage } from "../src/storage.ts";
+import { applicationStorage } from "../src/storage.ts";
 import { TaskListingConcept, NoSuchTask, NoSuchUser, type TaskList } from "../src/concepts/TaskListing.ts";
-import { dummyTasks } from "./task-fixtures.ts";
 
 const url = process.env.TEST_MONGODB_URL ?? process.env.MONGODB_URL;
 if (!url) throw new Error("Set TEST_MONGODB_URL or MONGODB_URL to run MongoDB integration tests.");
 const mongo = new MongoClient(url, { serverSelectionTimeoutMS: 5000 });
 const database = mongo.db(`taskmaster_lists_test_${crypto.randomUUID().replaceAll("-", "")}`);
-let storage: Awaited<ReturnType<typeof authenticationStorage>>;
+let storage: Awaited<ReturnType<typeof applicationStorage>>;
 let listing: TaskListingConcept;
 const owner = "alice";
-const [task, secondTask] = dummyTasks;
+const task = "first-task", secondTask = "second-task";
 const input = { owner, task };
 
 beforeAll(async () => {
   await mongo.connect();
-  storage = await authenticationStorage(database);
+  storage = await applicationStorage(database);
   listing = storage.TaskListing;
 }, 10000);
 beforeEach(async () => {
@@ -43,7 +42,7 @@ describe("TaskListing concept", () => {
     expect(await database.collection("taskLists").countDocuments({ owner })).toBe(1);
   });
 
-  test("adds dummy tasks using set semantics, preserves other tasks, and persists", async () => {
+  test("adds opaque task identities using set semantics, preserves other tasks, and persists", async () => {
     expect(await listing.addTask(input)).toEqual({ task });
     await listing.addTask(input);
     await listing.addTask({ owner, task: secondTask });
@@ -160,5 +159,25 @@ describe("Authenticated task endpoints", () => {
     expect((await handle(request("delete", { task }, bob))).status).toBe(404);
     expect((await handle(request("complete", { task }, bob))).status).toBe(404);
     expect((await list()).activeTasks).toEqual([task]);
+  });
+});
+
+
+describe("TaskListing operational principle sequence", () => {
+  test("initialize, add, complete, reopen, complete again, and delete another task", async () => {
+    expect(await listing.initialize({ owner })).toEqual({ owner });
+    await listing.addTask(input); await listing.addTask({ owner, task: secondTask });
+    expect(await list()).toEqual({ owner, activeTasks: [task, secondTask], completedTasks: [] });
+    await listing.completeTask(input);
+    expect(await list()).toEqual({ owner, activeTasks: [secondTask], completedTasks: [task] });
+    await listing.reopenTask(input); await listing.reopenTask(input);
+    expect(await list()).toEqual({ owner, activeTasks: [secondTask, task], completedTasks: [] });
+    await listing.completeTask(input); await listing.deleteTask({ owner, task: secondTask });
+    const before = await database.collection("taskLists").find({}).toArray();
+    await expect(listing.completeTask(input)).rejects.toBeInstanceOf(NoSuchTask);
+    await expect(listing.deleteTask({ owner, task: secondTask })).rejects.toBeInstanceOf(NoSuchTask);
+    await expect(listing.reopenTask({ owner: "unknown", task })).rejects.toBeInstanceOf(NoSuchUser);
+    expect(await database.collection("taskLists").find({}).toArray()).toEqual(before);
+    expect(await list()).toEqual({ owner, activeTasks: [], completedTasks: [task] });
   });
 });

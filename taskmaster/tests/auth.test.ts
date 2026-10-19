@@ -5,7 +5,7 @@ import { createGateway } from "@mit-sdg/sync-engine/boundary";
 import { createHttpHandler } from "@mit-sdg/sync-engine-http/handler";
 import { assembleApplication } from "../src/assembly.ts";
 import { authenticationPolicy } from "../src/edge.ts";
-import { authenticationStorage } from "../src/storage.ts";
+import { applicationStorage } from "../src/storage.ts";
 import { AuthenticatingConcept, InvalidCredentials, InvalidUsername, UsernameTaken, WeakPassword, type Account } from "../src/concepts/Authenticating.ts";
 import { SessioningConcept, UnknownSession } from "../src/concepts/Sessioning.ts";
 
@@ -14,12 +14,12 @@ if (!url) throw new Error("Set TEST_MONGODB_URL or MONGODB_URL to run MongoDB in
 const mongo = new MongoClient(url, { serverSelectionTimeoutMS: 5000 });
 // An isolated database: tests never clear the application's collections.
 const database = mongo.db(`taskmaster_auth_test_${crypto.randomUUID().replaceAll("-", "")}`);
-let storage: Awaited<ReturnType<typeof authenticationStorage>>;
+let storage: Awaited<ReturnType<typeof applicationStorage>>;
 const credentials = { username: "alice", password: "a secure test password" };
 
 beforeAll(async () => {
   await mongo.connect();
-  storage = await authenticationStorage(database);
+  storage = await applicationStorage(database);
 });
 beforeEach(async () => {
   await database.collection("accounts").deleteMany({});
@@ -124,5 +124,63 @@ describe("sync-engine HTTP authentication", () => {
     expect((await handle(request("register", { username: 123, password: [] }))).status).toBe(400);
     expect((await handle(request("register", credentials, undefined, "http://evil.example"))).status).toBe(403);
     expect((await handle(request("sign-in", credentials))).status).toBe(401);
+  });
+});
+
+
+describe("Authentication rejection atomicity", () => {
+  test("invalid and duplicate registration cannot replace an existing account", async () => {
+    await storage.Authenticating.register(credentials);
+    const before = await database.collection("accounts").find({}).sort({ username: 1 }).toArray();
+    const cases: Array<[typeof credentials, new (...args: any[]) => Error]> = [
+      [{ ...credentials, username: "!" }, InvalidUsername],
+      [{ ...credentials, username: "x".repeat(33) }, InvalidUsername],
+      [{ username: "newuser", password: "short" }, WeakPassword],
+      [{ username: "newuser", password: "x".repeat(129) }, WeakPassword],
+      [{ ...credentials, password: "a different secure password" }, UsernameTaken],
+    ];
+    for (const [input, refusal] of cases) {
+      await expect(storage.Authenticating.register(input)).rejects.toBeInstanceOf(refusal);
+      expect(await database.collection("accounts").find({}).sort({ username: 1 }).toArray()).toEqual(before);
+    }
+    expect(await storage.Authenticating.authenticate(credentials)).toEqual({ account: "alice" });
+  });
+  test("repeated authentication is read-only, including failed attempts", async () => {
+    await storage.Authenticating.register(credentials);
+    const before = await database.collection("accounts").find({}).toArray();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      expect(await storage.Authenticating.authenticate(credentials)).toEqual({ account: "alice" });
+      await expect(storage.Authenticating.authenticate({ ...credentials, password: "incorrect" })).rejects.toBeInstanceOf(InvalidCredentials);
+      await expect(storage.Authenticating.authenticate({ ...credentials, username: "unknown" })).rejects.toBeInstanceOf(InvalidCredentials);
+      expect(await database.collection("accounts").find({}).toArray()).toEqual(before);
+    }
+  });
+});
+
+describe("Session principle and rejected cancellations", () => {
+  test("start, check repeatedly, end, and reject reuse without changing another session", async () => {
+    const instant = new Date("2030-01-01T00:00:00Z");
+    const first = await storage.Sessioning.start({ subject: "alice", instant });
+    const second = await storage.Sessioning.start({ subject: "bob", instant });
+    expect(first.session).not.toBe(second.session);
+    expect(first.expiresAt.getTime() - instant.getTime()).toBe(30 * 60 * 1000);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      expect(await storage.Sessioning.current({ session: first.session, instant })).toEqual({ subject: "alice" });
+    }
+    expect(await storage.Sessioning.end({ session: first.session, instant })).toEqual({ ended: true });
+    const before = await database.collection("sessions").find({}).toArray();
+    for (const session of [first.session, "invented"]) {
+      await expect(storage.Sessioning.end({ session, instant })).rejects.toBeInstanceOf(UnknownSession);
+      await expect(storage.Sessioning.current({ session, instant })).rejects.toBeInstanceOf(UnknownSession);
+      expect(await database.collection("sessions").find({}).toArray()).toEqual(before);
+    }
+    expect(await storage.Sessioning.current({ session: second.session, instant })).toEqual({ subject: "bob" });
+  });
+  test("expiration rejects checking and ending without deleting the persisted session", async () => {
+    const issued = await storage.Sessioning.start({ subject: "alice", instant: new Date("2099-01-01T00:00:00Z") });
+    const before = await database.collection("sessions").find({}).toArray();
+    await expect(storage.Sessioning.current({ session: issued.session, instant: issued.expiresAt })).rejects.toBeInstanceOf(UnknownSession);
+    await expect(storage.Sessioning.end({ session: issued.session, instant: issued.expiresAt })).rejects.toBeInstanceOf(UnknownSession);
+    expect(await database.collection("sessions").find({}).toArray()).toEqual(before);
   });
 });

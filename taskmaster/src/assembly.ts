@@ -5,6 +5,10 @@ import { composition as sessions } from "./compositions/Sessions.ts";
 import { composition as taskLists } from "./compositions/TaskLists.ts";
 import { composition as tasks } from "./compositions/Tasks.ts";
 import { composition as taskSuggestions } from "./compositions/TaskSuggestions.ts";
+import { composition as recurrences } from "./compositions/Recurrences.ts";
+
+import { composition as taskSorting } from "./compositions/TaskSorting.ts";
+import { composition as taskFiltering } from "./compositions/TaskFiltering.ts";
 
 export function assembleApplication(
   instances: ImplementationOverrides<typeof applicationConceptSet> = {},
@@ -13,7 +17,7 @@ export function assembleApplication(
   return assemble({
     conceptSet: applicationConceptSet,
     instances: { ...applicationConceptSet.implementations(), ...instances },
-    composition: { Sessions: sessions, TaskLists: taskLists, Tasks: tasks, TaskSuggestions: taskSuggestions },
+    composition: { Sessions: sessions, TaskLists: taskLists, Tasks: tasks, TaskSuggestions: taskSuggestions, Recurrences: recurrences, TaskSorting: taskSorting, TaskFiltering: taskFiltering },
     ...options,
   });
 }

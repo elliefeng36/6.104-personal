@@ -1,12 +1,12 @@
 // Creates listed tasks and applies owner-checked edits.
-import { now } from "@mit-sdg/sync-engine/language";
+import { no, now, where } from "@mit-sdg/sync-engine/language";
 import { endpoint, receive, respond } from "@mit-sdg/sync-engine/boundary";
 import { concepts } from "../concepts.ts";
 import { hasOnly, record, validator } from "./validators.ts";
 
 const { Sessioning, TaskSetting, TaskListing } = concepts;
 const cookie = (value: Record<string, unknown>) => typeof value.session === "string" || value.session === null;
-const optionalFields = ["deadline", "duration", "recurringPeriod"];
+const optionalFields = ["deadline", "duration", "recurringPeriod", "recurringUnit"];
 const makeInput = validator(value => cookie(value) && typeof value.name === "string" && value.name.length <= 200 &&
   Object.keys(value).every(key => ["session", "name", ...optionalFields].includes(key)) &&
   (value.deadline === undefined || value.deadline === null || typeof value.deadline === "string") &&
@@ -23,22 +23,27 @@ const editInput = validator(value => {
 }, "Provide a task identity and supported field changes; null clears optional fields.");
 const output = validator(value => hasOnly(value, ["task"]) && typeof value.task === "string", "A task identity is required.");
 
-const Make = endpoint("/tasks/make", ({ session, instant, owner, name, deadline, duration, recurringPeriod, task }) =>
-  receive({ session, name, deadline, duration, recurringPeriod })
+const Make = endpoint("/tasks/make", ({ session, instant, owner, name, deadline, duration, recurringPeriod, recurringUnit, task }) =>
+  receive({ session, name, deadline, duration, recurringPeriod, recurringUnit })
     .where(now(instant))
     .then(Sessioning.current({ session, instant }).responds({ subject: owner }))
     .then(TaskListing.initialize({ owner }))
-    .then(TaskSetting.makeTask({ owner, name, deadline, duration, recurringPeriod, instant }).responds({ task }))
+    .then(TaskSetting.makeTask({ owner, name, deadline, duration, recurringPeriod, recurringUnit, instant }).responds({ task }))
     .then(TaskListing.addTask({ owner, task }))
     .then(respond({ task })),
-  { input: { required: ["session", "name"], defaults: { deadline: null, duration: null, recurringPeriod: null } }, validators: { input: makeInput, output } },
+  { input: { required: ["session", "name"], defaults: { deadline: null, duration: null, recurringPeriod: null, recurringUnit: null } }, validators: { input: makeInput, output } },
 );
 const Update = endpoint("/tasks/update", ({ session, instant, owner, task, changes }) =>
   receive({ session, task, changes })
     .where(now(instant))
     .then(Sessioning.current({ session, instant }).responds({ subject: owner }))
-    .then(TaskSetting.updateTask({ owner, task, changes, instant }).responds({ task }))
-    .then(respond({ task })),
-  { input: { required: ["session", "task", "changes"] }, validators: { input: editInput, output } },
+    .then(
+      where(TaskListing._active({ owner }).is({ task }))
+        .then(TaskSetting.updateTask({ owner, task, changes, instant }).responds({ task }))
+        .then(respond({ task })).named("active"),
+      where(no(TaskListing._active({ owner }).is({ task })))
+        .then(respond({ error: "NO_SUCH_TASK" })).named("inactive"),
+    ),
+  { input: { required: ["session", "task", "changes"] }, validators: { input: editInput } },
 );
 export const composition = { Make, Update };

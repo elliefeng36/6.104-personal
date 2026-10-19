@@ -6,6 +6,7 @@ import type { applicationConceptSet as ApplicationConceptSet } from "../src/conc
 type AtPath<T, P extends readonly string[]> = P extends readonly [infer H extends string, ...infer R extends string[]] ? H extends keyof T ? AtPath<T[H], R> : H extends `${number}` ? T extends readonly (infer Item)[] ? AtPath<Item, R> : never : never : T;
 type QueryRow<T> = T extends readonly (infer Row)[] ? Row : T;
 type AllOf<T extends readonly unknown[]> = T extends readonly [infer Head, ...infer Rest] ? Head & AllOf<Rest> : unknown;
+type OneOf<T extends readonly unknown[]> = T[number];
 type Jsonify<T> = T extends Date ? string : T extends null | boolean | number | string ? T : T extends (...args: never[]) => unknown ? never : T extends readonly (infer Item)[] ? Jsonify<Item>[] : T extends object ? { [K in keyof T]: Jsonify<T[K]> } : never;
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
@@ -55,8 +56,34 @@ export type TaskmasterWire = {
     };
     error: { error: AppWideError | "INVALID_INPUT" | "UNKNOWN_SESSION" };
   };
+  "/taskFiltering/view": {
+    input: {
+      "maxDuration"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.computations)["taskFilter"]["fn"]>[0], ["maxDuration"]>>;
+      "recurring"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.computations)["taskFilter"]["fn"]>[0], ["recurring"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
+      "sortBy"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.computations)["taskComparator"]["fn"]>[0], ["sortBy"]>>;
+      "status"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.computations)["taskSnapshot"]["fn"]>[0], ["status"]>>;
+    };
+    output: {
+      "tasks": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskSorting"]["sort"]>>, ["tasks"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "UNKNOWN_SESSION" };
+  };
+  "/taskSorting/view": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
+      "sortBy"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.computations)["taskComparator"]["fn"]>[0], ["sortBy"]>>;
+      "status"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.computations)["taskSnapshot"]["fn"]>[0], ["status"]>>;
+    };
+    output: {
+      "tasks": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskSorting"]["sort"]>>, ["tasks"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "UNKNOWN_SESSION" };
+  };
   "/taskSuggestions/makeRequest": {
     input: {
+      "maxDuration"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.computations)["suggestionCandidates"]["fn"]>[0], ["maxDuration"]>>;
+      "recurring"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.computations)["suggestionCandidates"]["fn"]>[0], ["recurring"]>>;
       "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
       "timeLimit"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSuggesting"]["makeRequest"]>[0], ["timeLimit"]>>;
     };
@@ -107,6 +134,7 @@ export type TaskmasterWire = {
       "duration"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["makeTask"]>[0], ["duration"]>>;
       "name": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["makeTask"]>[0], ["name"]>>;
       "recurringPeriod"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["makeTask"]>[0], ["recurringPeriod"]>>;
+      "recurringUnit"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["makeTask"]>[0], ["recurringUnit"]>>;
       "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
     };
     output: {
@@ -118,7 +146,7 @@ export type TaskmasterWire = {
     input: {
       "changes": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>[0], ["changes"]>>;
       "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
-      "task": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>[0], ["task"]>>;
+      "task": Jsonify<OneOf<[AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>[0], ["task"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>>, ["task"]>]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskListing"]["_active"]>>>, ["task"]>]>>;
     };
     output: {
       "task": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>[0], ["task"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>>, ["task"]>]>>;
@@ -164,8 +192,32 @@ export type TaskmasterWireHttp = {
     };
     error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
   };
+  "/taskFiltering/view": {
+    input: {
+      "maxDuration"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.computations)["taskFilter"]["fn"]>[0], ["maxDuration"]>>;
+      "recurring"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.computations)["taskFilter"]["fn"]>[0], ["recurring"]>>;
+      "sortBy"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.computations)["taskComparator"]["fn"]>[0], ["sortBy"]>>;
+      "status"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.computations)["taskSnapshot"]["fn"]>[0], ["status"]>>;
+    };
+    output: {
+      "tasks": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskSorting"]["sort"]>>, ["tasks"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/taskSorting/view": {
+    input: {
+      "sortBy"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.computations)["taskComparator"]["fn"]>[0], ["sortBy"]>>;
+      "status"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.computations)["taskSnapshot"]["fn"]>[0], ["status"]>>;
+    };
+    output: {
+      "tasks": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskSorting"]["sort"]>>, ["tasks"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
   "/taskSuggestions/makeRequest": {
     input: {
+      "maxDuration"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.computations)["suggestionCandidates"]["fn"]>[0], ["maxDuration"]>>;
+      "recurring"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.computations)["suggestionCandidates"]["fn"]>[0], ["recurring"]>>;
       "timeLimit"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSuggesting"]["makeRequest"]>[0], ["timeLimit"]>>;
     };
     output: {
@@ -211,6 +263,7 @@ export type TaskmasterWireHttp = {
       "duration"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["makeTask"]>[0], ["duration"]>>;
       "name": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["makeTask"]>[0], ["name"]>>;
       "recurringPeriod"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["makeTask"]>[0], ["recurringPeriod"]>>;
+      "recurringUnit"?: Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["makeTask"]>[0], ["recurringUnit"]>>;
     };
     output: {
       "task": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskListing"]["addTask"]>[0], ["task"]>>;
@@ -220,7 +273,7 @@ export type TaskmasterWireHttp = {
   "/tasks/update": {
     input: {
       "changes": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>[0], ["changes"]>>;
-      "task": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>[0], ["task"]>>;
+      "task": Jsonify<OneOf<[AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>[0], ["task"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>>, ["task"]>]>, AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskListing"]["_active"]>>>, ["task"]>]>>;
     };
     output: {
       "task": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>[0], ["task"]>, AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["TaskSetting"]["updateTask"]>>, ["task"]>]>>;

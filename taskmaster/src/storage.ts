@@ -6,7 +6,7 @@ import { TaskListingConcept, type TaskList } from "./concepts/TaskListing.ts";
 import { TaskSettingConcept, type Task } from "./concepts/TaskSetting.ts";
 import { TaskSuggestingConcept, type SuggestRequest } from "./concepts/TaskSuggesting.ts";
 
-export async function authenticationStorage(database: Db) {
+export async function applicationStorage(database: Db) {
   const accounts = database.collection<Account>("accounts");
   const sessions = database.collection<Session>("sessions");
   const lists = database.collection<TaskList>("taskLists");
@@ -15,6 +15,7 @@ export async function authenticationStorage(database: Db) {
   await requests.createIndex({ request: 1 }, { unique: true });
   await tasks.createIndex({ task: 1 }, { unique: true });
   await tasks.createIndex({ owner: 1 });
+  await tasks.createIndex({ isRecurring: 1, nextOccurrenceAt: 1 });
   await lists.createIndex({ owner: 1 }, { unique: true });
   await accounts.createIndex({ username: 1 }, { unique: true });
   await sessions.createIndex({ tokenHash: 1 }, { unique: true });

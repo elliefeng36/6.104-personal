@@ -2,7 +2,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { MongoClient } from "mongodb";
 import { TaskSettingConcept, EmptyName, InvalidDeadline, InvalidDuration, InvalidRecurringPeriod, TaskNotFound, type Task, type TaskChanges } from "../src/concepts/TaskSetting.ts";
-import { authenticationStorage } from "../src/storage.ts";
+import { applicationStorage } from "../src/storage.ts";
 import { assembleApplication } from "../src/assembly.ts";
 import { authenticationPolicy } from "../src/edge.ts";
 import { createGateway } from "@mit-sdg/sync-engine/boundary";
@@ -13,13 +13,13 @@ if (!url) throw new Error("Set TEST_MONGODB_URL or MONGODB_URL to run MongoDB te
 const mongo = new MongoClient(url, { serverSelectionTimeoutMS: 5000 });
 const database = mongo.db(`taskmaster_setting_test_${crypto.randomUUID().replaceAll("-", "")}`);
 let setting: TaskSettingConcept;
-let storage: Awaited<ReturnType<typeof authenticationStorage>>;
+let storage: Awaited<ReturnType<typeof applicationStorage>>;
 let now = new Date("2030-01-01T00:00:00.000Z");
 const owner = "alice";
 const deadline = "2099-06-01T12:00:00.000Z";
 const fields = { deadline, duration: 30, recurringPeriod: 7 };
 beforeAll(async () => {
-  await mongo.connect(); storage = await authenticationStorage(database);
+  await mongo.connect(); storage = await applicationStorage(database);
   setting = new TaskSettingConcept(database.collection<Task>("tasks"));
 }, 10000);
 beforeEach(async () => {
@@ -34,7 +34,7 @@ describe("TaskSetting creation", () => {
     const optional = Object.fromEntries(Object.entries(fields).filter((_, index) => mask & (1 << index)));
     test(`creates with ${Object.keys(optional).join(", ") || "just a name"}`, async () => {
       const { task } = await setting.makeTask({ instant: now, owner, name: "Get medicine", ...optional });
-      expect(await read(task)).toEqual({ task, owner, name: "Get medicine", hasDeadline: "deadline" in optional, isRecurring: "recurringPeriod" in optional, ...optional });
+      expect(await read(task)).toEqual({ task, owner, name: "Get medicine", hasDeadline: "deadline" in optional, isRecurring: "recurringPeriod" in optional, ...optional, ...("recurringPeriod" in optional ? { recurringUnit: "days", recurrenceAnchor: now.toISOString(), nextOccurrenceAt: "2030-01-08T00:00:00.000Z", ...("deadline" in optional ? { recurrenceDeadlineAnchor: deadline } : {}) } : {}) });
       expect((await new TaskSettingConcept(database.collection<Task>("tasks"))._get({ owner, task }))[0]!.details.name).toBe("Get medicine");
     });
   }
@@ -79,7 +79,7 @@ describe("TaskSetting changes", () => {
   test("changes all fields and then clears optional fields", async () => {
     const { task } = await setting.makeTask({ instant: now, owner, name: "Original" });
     await setting.updateTask({ instant: now, owner, task, changes: { name: "Changed", ...fields } });
-    expect(await read(task)).toEqual({ task, owner, name: "Changed", ...fields, hasDeadline: true, isRecurring: true });
+    expect(await read(task)).toEqual({ task, owner, name: "Changed", ...fields, hasDeadline: true, isRecurring: true, recurringUnit: "days", recurrenceAnchor: now.toISOString(), nextOccurrenceAt: "2030-01-08T00:00:00.000Z", recurrenceDeadlineAnchor: deadline });
     await setting.updateTask({ instant: now, owner, task, changes: { deadline: null, duration: null, recurringPeriod: null } });
     expect(await read(task)).toEqual({ task, owner, name: "Changed", hasDeadline: false, isRecurring: false });
   });
@@ -90,8 +90,8 @@ describe("TaskSetting changes", () => {
     await setting.setDeadline({ instant: now, owner, task, deadline: "2099-07-01T12:00:00.000Z" });
     await setting.setDuration({ owner, task, duration: 0 });
     await setting.setDuration({ owner, task, duration: 45 });
-    await setting.startRecurring({ owner, task, recurringPeriod: 7 });
-    await setting.startRecurring({ owner, task, recurringPeriod: 30 });
+    await setting.startRecurring({ owner, task, recurringPeriod: 7 , instant: new Date("2030-01-01T00:00:00Z") });
+    await setting.startRecurring({ owner, task, recurringPeriod: 30 , instant: new Date("2030-01-01T00:00:00Z") });
     expect(await read(task)).toMatchObject({ name: "Renamed", deadline: "2099-07-01T12:00:00.000Z", duration: 45, recurringPeriod: 30 });
     await setting.removeDeadline({ owner, task }); await setting.removeDuration({ owner, task }); await setting.stopRecurring({ owner, task });
     expect(await read(task)).toEqual({ task, owner, name: "Renamed", hasDeadline: false, isRecurring: false });
@@ -111,7 +111,7 @@ describe("TaskSetting changes", () => {
       (task: string, owner: string) => setting.removeDeadline({ owner, task }),
       (task: string, owner: string) => setting.setDuration({ owner, task, duration: 5 }),
       (task: string, owner: string) => setting.removeDuration({ owner, task }),
-      (task: string, owner: string) => setting.startRecurring({ owner, task, recurringPeriod: 5 }),
+      (task: string, owner: string) => setting.startRecurring({ owner, task, recurringPeriod: 5 , instant: new Date("2030-01-01T00:00:00Z") }),
       (task: string, owner: string) => setting.stopRecurring({ owner, task }),
     ];
     for (const run of cases) {
@@ -161,9 +161,9 @@ describe("TaskSetting HTTP integration", () => {
     expect(body.list.activeTasks[1].details).toMatchObject(fields);
     expect(body.list.activeTasks[0].details).not.toHaveProperty("_id");
     expect((await handle(request("/tasklists/complete", { task }, cookie))).status).toBe(200);
-    expect((await handle(request("/tasks/update", { task, changes: { name: "Edited after completion" } }, cookie))).status).toBe(200);
+    expect((await handle(request("/tasks/update", { task, changes: { name: "Edited after completion" } }, cookie))).status).toBe(404);
     const completed = await handle(request("/tasklists/view", {}, cookie));
-    expect((await completed.json()).list.completedTasks[0].details.name).toBe("Edited after completion");
+    expect((await completed.json()).list.completedTasks[0].details.name).toBe("Renamed");
   });
   test("rejects malformed requests and invalid fields without creating or changing tasks", async () => {
     const handle = handler(); const cookie = await login(owner);
@@ -188,5 +188,77 @@ describe("TaskSetting HTTP integration", () => {
     expect((await viewed.json()).list.activeTasks).toEqual([]);
     expect((await handle(request("/tasks/update", { task, changes: { deadline: null, duration: null, recurringPeriod: null } }, alice))).status).toBe(200);
     expect(await read(task)).toEqual({ task, owner, name: "Private", hasDeadline: false, isRecurring: false });
+  });
+});
+
+
+describe("TaskSetting individual refusals and repeated removals", () => {
+  const cases: Array<[string, (task: string) => Promise<unknown>, new (...args: any[]) => Error]> = [
+    ["setName", task => setting.setName({ owner, task, name: " " }), EmptyName],
+    ["setDeadline", task => setting.setDeadline({ owner, task, deadline: "not a date", instant: now }), InvalidDeadline],
+    ["setDuration", task => setting.setDuration({ owner, task, duration: -1 }), InvalidDuration],
+    ["startRecurring", task => setting.startRecurring({ owner, task, recurringPeriod: 0, instant: now }), InvalidRecurringPeriod],
+  ];
+  for (const [action, run, refusal] of cases) {
+    test(`${action} reports its refusal and leaves the full record unchanged`, async () => {
+      const { task } = await setting.makeTask({ owner, name: "Original", instant: now, ...fields });
+      const before = await database.collection("tasks").find({}).toArray();
+      await expect(run(task)).rejects.toBeInstanceOf(refusal);
+      expect(await database.collection("tasks").find({}).toArray()).toEqual(before);
+    });
+  }
+  test("clearing already absent optional fields is idempotent", async () => {
+    const { task } = await setting.makeTask({ owner, name: "Only name", instant: now });
+    const before = await read(task);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await setting.removeDeadline({ owner, task });
+      await setting.removeDuration({ owner, task });
+      await setting.stopRecurring({ owner, task });
+      await setting.updateTask({ owner, task, changes: {}, instant: now });
+      expect(await read(task)).toEqual(before);
+    }
+  });
+  for (const changes of [
+    { recurringPeriod: 1, recurringUnit: "years" },
+    { recurringPeriod: 1.5, recurringUnit: "months" },
+    { recurringPeriod: Number.MAX_VALUE },
+  ]) {
+    test(`invalid recurrence ${JSON.stringify(changes)} rejects an atomic multi-field patch`, async () => {
+      const { task } = await setting.makeTask({ owner, name: "Original", instant: now, ...fields });
+      const before = await read(task);
+      await expect(setting.updateTask({ owner, task, instant: now, changes: { name: "Must not save", duration: 99, ...changes } })).rejects.toBeInstanceOf(InvalidRecurringPeriod);
+      expect(await read(task)).toEqual(before);
+    });
+  }
+});
+
+
+describe("Only active tasks can be edited through the application", () => {
+  test("rejects every completed-task patch without changing details or membership", async () => {
+    const handle = handler(), cookie = await login(owner);
+    const made = await handle(request("/tasks/make", { name: "Finished", ...fields }, cookie));
+    const { task } = await made.json();
+    expect((await handle(request("/tasklists/complete", { task }, cookie))).status).toBe(200);
+    const before = await read(task);
+    const listBefore = await storage.TaskListing._viewTasks({ owner });
+    for (const changes of [{ name: "Changed" }, { deadline: null }, { duration: 5 }, { recurringPeriod: null }, { recurringPeriod: 1, recurringUnit: "months" }]) {
+      const response = await handle(request("/tasks/update", { task, changes }, cookie));
+      expect(response.status).toBe(404);
+      expect(await response.json()).toEqual({ error: "NOT_FOUND" });
+      expect(await read(task)).toEqual(before);
+      expect(await storage.TaskListing._viewTasks({ owner })).toEqual(listBefore);
+    }
+    await storage.TaskListing.reopenTask({ owner, task });
+    expect((await handle(request("/tasks/update", { task, changes: { name: "Next occurrence" } }, cookie))).status).toBe(200);
+    expect((await read(task)).name).toBe("Next occurrence");
+  });
+  test("deleted tasks cannot be edited even though their details remain stored", async () => {
+    const handle = handler(), cookie = await login(owner);
+    const made = await handle(request("/tasks/make", { name: "Deleted" }, cookie));
+    const { task } = await made.json();
+    await handle(request("/tasklists/delete", { task }, cookie));
+    const before = await read(task);
+    expect((await handle(request("/tasks/update", { task, changes: { name: "Changed" } }, cookie))).status).toBe(404);
+    expect(await read(task)).toEqual(before);
   });
 });

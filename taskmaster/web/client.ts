@@ -1,5 +1,5 @@
 // Vue interface using the generated, typed API client.
-import { createApp, onMounted, reactive, ref } from "vue/dist/vue.esm-bundler.js";
+import { createApp, nextTick, onMounted, onUnmounted, reactive, ref } from "vue/dist/vue.esm-bundler.js";
 import { createHttpClient } from "@mit-sdg/sync-engine-http/client";
 import type { TaskmasterWireHttp } from "../generated/wire.ts";
 type Task = TaskmasterWireHttp["/tasklists/view"]["output"]["list"]["activeTasks"][number]["details"];
@@ -17,11 +17,16 @@ createApp({
     const currentUser = ref<string | null>(null);
     const registering = ref(false); const busy = ref(true); const error = ref("");
     const activeTasks = ref<Task[]>([]); const completedTasks = ref<Task[]>([]);
+    const sortBy = ref("none"); const recurringFilter = ref("all"); const maximumDuration = ref("");
+    const listError = ref("");
+    let listRequest = 0;
     const tasksLoading = ref(false); const tasksLoaded = ref(false); const taskMessage = ref("");
     const editing = ref<Task | null>(null);
-    const draft = reactive({ name: "", deadline: "", duration: "", recurringPeriod: "" });
+    const pendingDelete = ref<Task | null>(null);
+    const draft = reactive({ name: "", deadline: "", duration: "", recurringPeriod: "", repeat: "none" });
     const timeLimit = ref("");
     const suggestion = ref<Task | null>(null);
+    const currentTime = ref(Date.now());
     const suggestionMessage = ref("");
     const suggestionError = ref("");
     function clearSuggestion() { suggestion.value = null; suggestionMessage.value = ""; suggestionError.value = ""; }
@@ -35,7 +40,12 @@ createApp({
       }
       busy.value = true;
       try {
-        const result = await client.taskSuggestions.makeRequest({ timeLimit: minutes });
+        const maxRaw = String(maximumDuration.value).trim();
+        const maxDuration = maxRaw === "" ? null : Number(maxRaw);
+        if (maxDuration !== null && (!Number.isFinite(maxDuration) || maxDuration < 0)) {
+          suggestionError.value = "Enter a valid maximum duration in the task filters first."; return;
+        }
+        const result = await client.taskSuggestions.makeRequest({ timeLimit: minutes, recurring: recurringFilter.value, maxDuration });
         if ("error" in result) {
           if (result.error === "UNAUTHORIZED") taskError(result.error);
           else suggestionError.value = result.error === "INVALID_REQUEST"
@@ -45,10 +55,11 @@ createApp({
         }
         await loadTasks();
         const selected = result.suggestion;
-        if (selected.outcome === "EMPTY_TASKLIST") suggestionMessage.value = "No active tasks to suggest. Create a task first.";
+        if (selected.outcome === "EMPTY_TASKLIST") suggestionMessage.value = "No active tasks match your filters. Clear the filters or create a task.";
         else if (selected.outcome === "NO_VIABLE_TASKS") suggestionMessage.value = "No tasks fit this time limit. Try more time or remove the limit.";
         else {
-          suggestion.value = activeTasks.value.find(task => task.task === selected.task) ?? null;
+          const all = await client.tasklists.view({});
+          suggestion.value = "error" in all ? null : all.list.activeTasks.find(row => row.details.task === selected.task)?.details ?? null;
           if (!suggestion.value) suggestionMessage.value = "That task changed while loading. Ask for another suggestion.";
         }
       } catch { suggestionError.value = "Could not suggest a task. Please try again."; }
@@ -56,13 +67,13 @@ createApp({
     }
     function resetForm() {
       editing.value = null;
-      Object.assign(draft, { name: "", deadline: "", duration: "", recurringPeriod: "" });
+      Object.assign(draft, { name: "", deadline: "", duration: "", recurringPeriod: "", repeat: "none" });
     }
     function editTask(task: Task) {
       clearSuggestion();
       editing.value = task; error.value = ""; taskMessage.value = "";
       Object.assign(draft, { name: task.name, deadline: localTime(task.deadline),
-        duration: task.duration?.toString() ?? "", recurringPeriod: task.recurringPeriod?.toString() ?? "" });
+        duration: task.duration?.toString() ?? "", recurringPeriod: task.recurringPeriod?.toString() ?? "", repeat: !task.isRecurring ? "none" : task.recurringUnit === "months" ? "monthly" : task.recurringPeriod === 1 ? "daily" : task.recurringPeriod === 7 ? "weekly" : "custom" });
       document.getElementById("task-name")?.focus();
     }
     function taskError(code: string) {
@@ -74,20 +85,42 @@ createApp({
       else if (code === "INVALID_REQUEST") error.value = "Check the task fields: name is required, a new deadline must be in the future, duration must be nonnegative, and recurring period must be positive.";
       else error.value = "Could not update your tasks. Please try again.";
     }
-    async function loadTasks() {
-      tasksLoading.value = true;
+    async function loadTasks(background = false) {
+      const loadingFor = currentUser.value;
+      const requestId = ++listRequest;
+      const raw = String(maximumDuration.value).trim();
+      const maxDuration = raw === "" ? null : Number(raw);
+      if (maxDuration !== null && (!Number.isFinite(maxDuration) || maxDuration < 0)) {
+        tasksLoading.value = false; listError.value = "Enter a nonnegative maximum duration, or leave it blank."; return;
+      }
+      listError.value = "";
+      if (!background) tasksLoading.value = true;
       try {
-        const result = await client.tasklists.view({});
-        if ("error" in result) { tasksLoaded.value = false; taskError(result.error); return; }
-        activeTasks.value = result.list.activeTasks.map(row => row.details);
-        completedTasks.value = result.list.completedTasks.map(row => row.details);
+        const options = { sortBy: sortBy.value, recurring: recurringFilter.value, maxDuration };
+        const [activeResult, completedResult] = await Promise.all([
+          client.taskFiltering.view({ ...options, status: "active" }),
+          client.taskFiltering.view({ ...options, status: "completed" }),
+        ]);
+        if (currentUser.value !== loadingFor || requestId !== listRequest) return;
+        if ("error" in activeResult) { tasksLoaded.value = false; taskError(activeResult.error); return; }
+        if ("error" in completedResult) { tasksLoaded.value = false; taskError(completedResult.error); return; }
+        const active = activeResult.tasks;
+        const completed = completedResult.tasks;
+        if (JSON.stringify(activeTasks.value) !== JSON.stringify(active) || JSON.stringify(completedTasks.value) !== JSON.stringify(completed)) clearSuggestion();
+        if (editing.value && completed.some(task => task.task === editing.value?.task)) {
+          resetForm(); error.value = "Completed tasks cannot be edited.";
+        }
+        activeTasks.value = active; completedTasks.value = completed;
         tasksLoaded.value = true;
-      } finally { tasksLoading.value = false; }
+      } catch { if (requestId === listRequest) listError.value = "Could not load tasks. Please try again."; }
+      finally { if (requestId === listRequest) tasksLoading.value = false; }
     }
     async function saveTask() {
       clearSuggestion();
       busy.value = true; error.value = ""; taskMessage.value = "";
       try {
+        const period = draft.repeat === "none" ? null : draft.repeat === "daily" || draft.repeat === "monthly" ? 1 : draft.repeat === "weekly" ? 7 : Number(draft.recurringPeriod);
+        const unit = draft.repeat === "monthly" ? "months" : "days";
         const original = editing.value;
         let result;
         if (original) {
@@ -96,14 +129,16 @@ createApp({
           if (draft.name !== original.name) changes.name = draft.name;
           if (draft.deadline !== localTime(original.deadline)) changes.deadline = draft.deadline ? new Date(draft.deadline).toISOString() : null;
           if (draft.duration !== (original.duration?.toString() ?? "")) changes.duration = draft.duration === "" ? null : Number(draft.duration);
-          if (draft.recurringPeriod !== (original.recurringPeriod?.toString() ?? "")) changes.recurringPeriod = draft.recurringPeriod === "" ? null : Number(draft.recurringPeriod);
+          if (period !== (original.recurringPeriod ?? null) || (period !== null && unit !== (original.recurringUnit ?? "days"))) {
+            changes.recurringPeriod = period; changes.recurringUnit = period === null ? null : unit;
+          }
           if (!Object.keys(changes).length) { resetForm(); taskMessage.value = "No changes to save."; return; }
           result = await client.tasks.update({ task: original.task, changes });
         } else {
           result = await client.tasks.make({ name: draft.name,
             ...(draft.deadline ? { deadline: new Date(draft.deadline).toISOString() } : {}),
             ...(draft.duration !== "" ? { duration: Number(draft.duration) } : {}),
-            ...(draft.recurringPeriod !== "" ? { recurringPeriod: Number(draft.recurringPeriod) } : {}),
+            ...(period !== null ? { recurringPeriod: period, recurringUnit: unit } : {}),
           });
         }
         if ("error" in result) { taskError(result.error); return; }
@@ -111,6 +146,27 @@ createApp({
         await loadTasks();
       } catch { error.value = "Could not save the task. Check the fields and try again."; }
       finally { busy.value = false; }
+    }
+    function requestDelete(task: Task) {
+      pendingDelete.value = task;
+      nextTick(() => document.getElementById("cancel-delete")?.focus());
+    }
+    function cancelDelete() {
+      const task = pendingDelete.value;
+      pendingDelete.value = null;
+      nextTick(() => document.getElementById(`delete-${task?.task}`)?.focus());
+    }
+    async function confirmDelete() {
+      const task = pendingDelete.value;
+      if (!task) return;
+      pendingDelete.value = null;
+      await changeTask("delete", task.task);
+    }
+    function trapDeleteFocus(event: KeyboardEvent) {
+      const buttons = (event.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>("button");
+      const first = buttons[0], last = buttons[buttons.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     }
     async function changeTask(action: "delete" | "complete", task: string) {
       clearSuggestion();
@@ -141,7 +197,20 @@ createApp({
       } finally { busy.value = false; }
     }
     function toggle() { registering.value = !registering.value; error.value = ""; password.value = ""; }
-    const deadlineText = (deadline: string) => new Date(deadline).toLocaleString();
+    const isOverdue = (task: Task) => task.hasDeadline && !!task.deadline && Date.parse(task.deadline) < currentTime.value;
+    const deadlineText = (deadline: string) => {
+      const date = new Date(deadline);
+      return date.toLocaleString("en-US", {
+        month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+        ...(date.getFullYear() !== new Date().getFullYear() ? { year: "numeric" as const } : {}),
+      });
+    };
+    const recurrenceText = (task: Task) => {
+      if (task.recurringUnit === "months" && task.recurringPeriod === 1) return "Monthly";
+      if (task.recurringUnit !== "months" && task.recurringPeriod === 1) return "Daily";
+      if (task.recurringUnit !== "months" && task.recurringPeriod === 7) return "Weekly";
+      return `Every ${task.recurringPeriod} ${task.recurringUnit === "months" ? "months" : "days"}`;
+    };
     onMounted(async () => {
       try {
         const result = await client.auth.current({});
@@ -149,9 +218,18 @@ createApp({
         else if (result.error !== "UNAUTHORIZED") error.value = "Could not check your session. Please try again.";
       } finally { busy.value = false; }
     });
+    // Keep scheduled returns visible without disrupting an open edit form.
+    let polling = false;
+    const recurrencePoll = setInterval(async () => {
+      currentTime.value = Date.now();
+      if (!currentUser.value || busy.value || tasksLoading.value || pendingDelete.value || polling) return;
+      polling = true;
+      try { await loadTasks(true); } finally { polling = false; }
+    }, 5000);
+    onUnmounted(() => clearInterval(recurrencePoll));
     return { username, password, currentUser, registering, busy, error, submit, logout, toggle,
-      activeTasks, completedTasks, tasksLoading, tasksLoaded, taskMessage, loadTasks, changeTask,
-      editing, draft, resetForm, editTask, saveTask, deadlineText,
+      sortBy, recurringFilter, maximumDuration, listError, activeTasks, completedTasks, tasksLoading, tasksLoaded, taskMessage, loadTasks, changeTask,
+      pendingDelete, requestDelete, cancelDelete, confirmDelete, trapDeleteFocus, editing, draft, resetForm, editTask, saveTask, deadlineText, recurrenceText, isOverdue,
       timeLimit, suggestion, suggestionMessage, suggestionError, suggestTask, clearSuggestion };
   },
   template: `
@@ -160,70 +238,113 @@ createApp({
       <template v-if="currentUser">
         <p>You’re logged in as <strong>{{ currentUser }}</strong>.</p>
         <button :disabled="busy" @click="logout">Log out</button>
-        <section aria-label="Task suggestion">
-          <h2>What should I do next?</h2>
-          <form @submit.prevent="suggestTask">
-            <label for="suggestion-time">Time available in minutes (optional)</label>
-            <input id="suggestion-time" v-model="timeLimit" type="text" inputmode="decimal" :disabled="busy || tasksLoading" @input="clearSuggestion">
-            <p class="hint">Leave blank for no limit. Missing duration estimates count as 0 minutes. Earlier deadlines come first.</p>
-            <button type="submit" :disabled="busy || tasksLoading">Suggest a task</button>
-            <p v-if="suggestionError" role="alert" class="error">{{ suggestionError }}</p>
+        <div v-if="pendingDelete" class="dialog-backdrop" @click.self="cancelDelete">
+          <div class="delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-title" aria-describedby="delete-description" @keydown.esc.prevent="cancelDelete" @keydown.tab="trapDeleteFocus">
+            <h2 id="delete-title">Delete task?</h2>
+            <p id="delete-description">Delete &quot;{{ pendingDelete.name }}&quot;? This cannot be undone.</p>
+            <div class="dialog-actions">
+              <button id="cancel-delete" type="button" @click="cancelDelete">Cancel</button>
+              <button class="delete" type="button" @click="confirmDelete">Delete task</button>
+            </div>
+          </div>
+        </div>
+        <section aria-label="Task suggestion" class="compact-suggestion">
+          <form @submit.prevent="suggestTask" class="suggestion-row">
+            <h2>Suggestion</h2>
+            <label for="suggestion-time" class="sr-only">Time available in minutes (optional)</label>
+            <input id="suggestion-time" v-model="timeLimit" type="text" inputmode="decimal" placeholder="Minutes (any)" :disabled="busy || tasksLoading" @input="clearSuggestion">
+            <button type="submit" :disabled="busy || tasksLoading">Suggest</button>
           </form>
-          <p v-if="suggestionMessage" role="status">{{ suggestionMessage }}</p>
-          <div v-if="suggestion" role="status" class="suggestion">
-            <strong>Suggested: {{ suggestion.name }}</strong>
-            <div v-if="suggestion.hasDeadline">Due: {{ deadlineText(suggestion.deadline) }}</div>
-            <div v-if="suggestion.duration !== undefined">Estimated duration: {{ suggestion.duration }} minutes</div>
-            <button class="link" :disabled="busy" @click="editTask(suggestion)">Edit suggested task</button>
+          <div class="suggestion-result" :class="{ overdue: suggestion && isOverdue(suggestion) }" aria-live="polite">
+            <span v-if="suggestionError" role="alert" class="error">{{ suggestionError }}</span>
+            <span v-else-if="suggestionMessage">{{ suggestionMessage }}</span>
+            <template v-else-if="suggestion">
+              <strong>{{ suggestion.name }}<span v-if="isOverdue(suggestion)"> (overdue)</span></strong>
+              <button class="suggestion-complete" :disabled="busy || tasksLoading" :aria-label="'Complete suggested task ' + suggestion.name" @click="changeTask('complete', suggestion.task)">Complete</button>
+              <button class="link" :disabled="busy" @click="editTask(suggestion)">Edit</button>
+            </template>
+            <span v-else class="hint">No suggestion yet.</span>
           </div>
         </section>
         <section aria-label="Your tasks">
           <h2>{{ editing ? 'Edit task' : 'New task' }}</h2>
           <form @submit.prevent="saveTask">
             <fieldset :disabled="busy || tasksLoading">
-              <label for="task-name">Task name</label>
-              <input id="task-name" v-model="draft.name" required maxlength="200">
-              <label for="task-deadline">Deadline (optional)</label>
-              <input id="task-deadline" v-model="draft.deadline" type="datetime-local">
-              <label for="task-duration">Estimated duration in minutes (optional)</label>
-              <input id="task-duration" v-model="draft.duration" type="number" min="0" step="any">
-              <label for="task-recurrence">Repeat every how many days? (optional)</label>
-              <input id="task-recurrence" v-model="draft.recurringPeriod" type="number" min="0.000001" step="any">
-              <p class="hint">Leave optional fields blank to omit or clear them. Repeating tasks are not automatically regenerated yet.</p>
-              <button type="submit">{{ busy ? 'Please wait…' : editing ? 'Save changes' : 'Create task' }}</button>
-              <p v-if="error" role="alert" class="error">{{ error }}</p>
-              <button v-if="editing" class="link" type="button" @click="resetForm">Cancel editing</button>
+              <label for="task-name" class="sr-only">Task name</label>
+              <input id="task-name" v-model="draft.name" placeholder="Task name" required maxlength="200" :aria-expanded="!!editing || !!draft.name.trim()" aria-controls="task-details">
+              <div v-if="editing || draft.name.trim()" id="task-details">
+                <div class="task-fields">
+                  <div>
+                    <label for="task-deadline">Deadline (optional)</label>
+                    <input id="task-deadline" v-model="draft.deadline" type="datetime-local">
+                  </div>
+                  <div>
+                    <label for="task-duration">Duration (minutes)</label>
+                    <input id="task-duration" v-model="draft.duration" type="number" min="0" step="any" placeholder="Optional">
+                  </div>
+                  <div>
+                    <label for="task-recurrence">Repeat</label>
+                    <select id="task-recurrence" v-model="draft.repeat"><option value="none">Does not repeat</option><option value="daily">Daily</option><option value="weekly">Every week</option><option value="monthly">Every month</option><option value="custom">Custom</option></select>
+                  </div>
+                  <div v-if="draft.repeat === 'custom'">
+                    <label for="custom-days">Repeat every (days)</label>
+                    <input id="custom-days" v-model="draft.recurringPeriod" type="number" min="0.000001" step="any" required>
+                  </div>
+                </div>
+                <button type="submit">{{ busy ? 'Please wait...' : editing ? 'Save changes' : 'Create task' }}</button>
+                <p v-if="error" role="alert" class="error">{{ error }}</p>
+                <button v-if="editing" class="link" type="button" @click="resetForm">Cancel editing</button>
+              </div>
+              <p v-if="error && !editing && !draft.name.trim()" role="alert" class="error">{{ error }}</p>
             </fieldset>
+          </form>
+          <form @submit.prevent="clearSuggestion(); loadTasks()" aria-label="Sort and filter tasks" class="filter-bar">
+            <div class="filter-row">
+              <label for="sort-tasks" class="sr-only">Sort by</label>
+              <select id="sort-tasks" v-model="sortBy" @change="clearSuggestion(); loadTasks()" :disabled="busy">
+                <option value="none">Added order</option><option value="deadline">Due date</option><option value="duration">Duration</option>
+              </select>
+              <label for="filter-recurring" class="sr-only">Recurring tasks</label>
+              <select id="filter-recurring" v-model="recurringFilter" @change="clearSuggestion(); loadTasks()" :disabled="busy">
+                <option value="all">All tasks</option><option value="recurring">Recurring only</option><option value="nonrecurring">Nonrecurring only</option>
+              </select>
+              <label for="filter-duration" class="sr-only">Maximum duration in minutes (optional)</label>
+              <input id="filter-duration" v-model="maximumDuration" @input="clearSuggestion" type="number" min="0" step="any" placeholder="Max min" :disabled="busy">
+              <button type="submit" :disabled="busy">Apply</button>
+            </div>
+            <p v-if="listError" role="alert" class="error">{{ listError }}</p>
           </form>
           <p v-if="tasksLoading" role="status">Loading tasks…</p>
           <template v-else-if="tasksLoaded">
             <h3>Active ({{ activeTasks.length }})</h3>
-            <p v-if="!activeTasks.length" class="hint">No active tasks. Create a task above.</p>
+            <p v-if="!activeTasks.length" class="hint">No active tasks match these filters.</p>
             <ul class="tasks">
-              <li v-for="task in activeTasks" :key="task.task">
-                <strong>{{ task.name }}</strong>
-                <div class="hint">
-                  <div v-if="task.hasDeadline">Due: {{ deadlineText(task.deadline) }}</div>
-                  <div v-if="task.duration !== undefined">Estimated duration: {{ task.duration }} minutes</div>
-                  <div v-if="task.isRecurring">Repeats every {{ task.recurringPeriod }} days</div>
+              <li v-for="task in activeTasks" :key="task.task" :class="{ overdue: isOverdue(task) }">
+                <div class="task-row">
+                  <strong>{{ task.name }}</strong>
+                  <div class="actions">
+                    <button :disabled="busy || tasksLoading" :aria-label="'Complete ' + task.name" @click="changeTask('complete', task.task)">Complete</button>
+                    <button :disabled="busy || tasksLoading" :aria-label="'Edit ' + task.name" @click="editTask(task)">Edit</button>
+                    <button class="delete" :id="'delete-' + task.task" :disabled="busy || tasksLoading" :aria-label="'Delete ' + task.name" @click="requestDelete(task)">Delete</button>
+                  </div>
                 </div>
-                <div class="actions">
-                  <button :disabled="busy || tasksLoading" :aria-label="'Edit ' + task.name" @click="editTask(task)">Edit</button>
-                  <button :disabled="busy || tasksLoading" :aria-label="'Complete ' + task.name" @click="changeTask('complete', task.task)">Complete</button>
-                  <button class="delete" :disabled="busy || tasksLoading" :aria-label="'Delete ' + task.name" @click="changeTask('delete', task.task)">Delete</button>
+                <div v-if="task.hasDeadline || task.duration !== undefined || task.isRecurring" class="hint task-meta">
+                  <span v-if="task.hasDeadline"><span v-if="isOverdue(task)" class="overdue-label">Overdue: </span><template v-else>Due </template>{{ deadlineText(task.deadline) }}</span>
+                  <span v-if="task.duration !== undefined">{{ task.duration }} min</span>
+                  <span v-if="task.isRecurring">{{ recurrenceText(task) }}</span>
                 </div>
               </li>
             </ul>
             <h3>Completed ({{ completedTasks.length }})</h3>
-            <p v-if="!completedTasks.length" class="hint">No completed tasks yet.</p>
+            <p v-if="!completedTasks.length" class="hint">No completed tasks match these filters.</p>
             <ul class="tasks"><li v-for="task in completedTasks" :key="task.task">
               <span class="completed">{{ task.name }}</span>
-              <div class="hint">
-                <div v-if="task.hasDeadline">Due: {{ deadlineText(task.deadline) }}</div>
-                <div v-if="task.duration !== undefined">Estimated duration: {{ task.duration }} minutes</div>
-                <div v-if="task.isRecurring">Repeats every {{ task.recurringPeriod }} days</div>
+              <div v-if="task.hasDeadline || task.duration !== undefined || task.isRecurring || task.nextOccurrenceAt" class="hint task-meta">
+                <span v-if="task.hasDeadline">Due {{ deadlineText(task.deadline) }}</span>
+                <span v-if="task.duration !== undefined">{{ task.duration }} min</span>
+                <span v-if="task.isRecurring">{{ recurrenceText(task) }}</span>
+                <span v-if="task.nextOccurrenceAt">Returns {{ deadlineText(task.nextOccurrenceAt) }}</span>
               </div>
-              <button :disabled="busy || tasksLoading" :aria-label="'Edit ' + task.name" @click="editTask(task)">Edit</button>
             </li></ul>
           </template>
           <button class="link" :disabled="busy || tasksLoading" @click="clearSuggestion(); loadTasks()">Refresh tasks</button>

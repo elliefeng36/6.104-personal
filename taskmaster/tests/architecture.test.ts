@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import ts from "typescript";
 
-const names = ["Authenticating", "Sessioning", "TaskListing", "TaskSetting", "TaskSuggesting"];
+const names = ["Authenticating", "Sessioning", "TaskListing", "TaskSetting", "TaskSuggesting", "TaskSorting", "TaskFiltering"];
 for (const name of names) {
   test(`${name} does not import a peer concept or application wiring`, () => {
     const source = readFileSync(new URL(`../src/concepts/${name}.ts`, import.meta.url), "utf8");

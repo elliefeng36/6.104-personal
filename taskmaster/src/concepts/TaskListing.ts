@@ -44,6 +44,15 @@ export class TaskListingConcept {
     return { task };
   }
 
+  async reopenTask({ owner, task }: { owner: string; task: string }) {
+    const result = await this.store.updateOne({ owner, completedTasks: task }, {
+      $pull: { completedTasks: task }, $addToSet: { activeTasks: task },
+    });
+    if (!result.matchedCount && !(await this.store.findOne({ owner }))) throw new NoSuchUser("There is no such user.");
+    // Active or deleted tasks stay unchanged when a cycle is retried.
+    return { task };
+  }
+
   async _viewTasks({ owner }: { owner: string }): Promise<{ taskList: TaskList }> {
     const found = await this.store.findOne({ owner });
     return { taskList: { owner, activeTasks: found?.activeTasks ?? [], completedTasks: found?.completedTasks ?? [] } };

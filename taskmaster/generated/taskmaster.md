@@ -130,6 +130,7 @@ Defined in [TaskSetting](../design/concepts/TaskSetting.md), line 1.
   - Refuses `NO_SUCH_TASK`: There is no such task.
 - `releaseOccurrence(owner: User, task: Task, scheduledFor: String, instant: DateTime) : returns (owner: User, task: Task, cycle: String, ready: Flag)`
   - Refuses `NO_SUCH_TASK`: There is no such task.
+  - Refuses `INVALID_RECURRING_PERIOD`: Recurring period must be a finite positive number of days.
   - Refuses `INVALID_DEADLINE`: The deadline must be a valid future UTC timestamp.
 - `acknowledgeOccurrence(owner: User, task: Task, cycle: String) : returns (task: Task)`
 

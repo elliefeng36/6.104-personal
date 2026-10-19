@@ -7,7 +7,7 @@ import { processRecurrences } from "../src/recurrences.ts";
 import { createGateway } from "@mit-sdg/sync-engine/boundary";
 import { createHttpHandler } from "@mit-sdg/sync-engine-http/handler";
 import { authenticationPolicy } from "../src/edge.ts";
-import { TaskNotFound } from "../src/concepts/TaskSetting.ts";
+import { InvalidDeadline, InvalidRecurringPeriod, TaskNotFound } from "../src/concepts/TaskSetting.ts";
 import { NoSuchUser } from "../src/concepts/TaskListing.ts";
 
 const url = process.env.TEST_MONGODB_URL ?? process.env.MONGODB_URL;
@@ -241,5 +241,29 @@ describe("Recurrence cancellation and missing-task refusals", () => {
     expect(await database.collection("tasks").find({}).toArray()).toEqual(before);
     expect(await storage.TaskSetting.acknowledgeOccurrence({ owner, task: "nonexistent", cycle: "missing" })).toEqual({ task: "nonexistent" });
     expect(await database.collection("tasks").find({}).toArray()).toEqual(before);
+  });
+});
+
+
+describe("Documented recurrence refusals", () => {
+  test("a deadline advanced through valid actions eventually refuses overflow without changing state", async () => {
+    instant = new Date(-8640000000000000);
+    const task = await make({ recurringPeriod: 60000000, deadline: "9999-01-01T00:00:00.000Z" });
+    const first = await details(task);
+    instant = new Date(first.nextOccurrenceAt!);
+    expect((await storage.TaskSetting.releaseOccurrence({ owner, task, scheduledFor: first.nextOccurrenceAt!, instant })).ready).toBe(true);
+    await storage.TaskSetting.acknowledgeOccurrence({ owner, task, cycle: first.nextOccurrenceAt! });
+    const before = await details(task);
+    instant = new Date(before.nextOccurrenceAt!);
+    await expect(storage.TaskSetting.releaseOccurrence({ owner, task, scheduledFor: before.nextOccurrenceAt!, instant })).rejects.toBeInstanceOf(InvalidDeadline);
+    expect(await details(task)).toEqual(before);
+  });
+  test("an unrepresentable next occurrence reports InvalidRecurringPeriod without changing state", async () => {
+    instant = new Date(8640000000000000 - 86400000);
+    const task = await make();
+    const before = await details(task);
+    instant = new Date(before.nextOccurrenceAt!);
+    await expect(storage.TaskSetting.releaseOccurrence({ owner, task, scheduledFor: before.nextOccurrenceAt!, instant })).rejects.toBeInstanceOf(InvalidRecurringPeriod);
+    expect(await details(task)).toEqual(before);
   });
 });

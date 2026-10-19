@@ -73,7 +73,12 @@ export class TaskSettingConcept {
     const nextOccurrenceAt = this.#next(found.recurrenceAnchor ?? scheduledFor, found.recurringPeriod, found.recurringUnit ?? "days", instant);
     let deadline = found.deadline;
     if (deadline) {
-      deadline = this.#next(found.recurrenceDeadlineAnchor ?? deadline, found.recurringPeriod, found.recurringUnit ?? "days", new Date(Math.max(instant.getTime(), Date.parse(deadline))));
+      try {
+        deadline = this.#next(found.recurrenceDeadlineAnchor ?? deadline, found.recurringPeriod, found.recurringUnit ?? "days", new Date(Math.max(instant.getTime(), Date.parse(deadline))));
+      } catch (error) {
+        if (error instanceof InvalidRecurringPeriod) throw new InvalidDeadline("The advanced deadline cannot be represented as a timestamp.");
+        throw error;
+      }
     }
     // Persist the cycle before emitting it so a restart can retry without shifting twice.
     const result = await this.store.updateOne({ owner, task, nextOccurrenceAt: scheduledFor, pendingRecurrence: { $exists: false } }, {
@@ -159,7 +164,7 @@ export class TaskSettingConcept {
     const set: Record<string, unknown> = {};
     const unset: Record<string, ""> = {};
     if (changes.name !== undefined) set.name = changes.name.trim();
-    for (const field of ["deadline", "duration", "recurringPeriod", "recurringUnit"] as const) {
+    for (const field of ["deadline", "duration", "recurringPeriod"] as const) {
       const value = changes[field];
       if (value === undefined) continue;
       if (value === null) unset[field] = "";
@@ -168,7 +173,7 @@ export class TaskSettingConcept {
     if (changes.deadline !== undefined) {
       set.hasDeadline = changes.deadline !== null;
       if (changes.deadline === null) unset.recurrenceDeadlineAnchor = "";
-      else if (existing.isRecurring || changes.recurringPeriod != null) set.recurrenceDeadlineAnchor = changes.deadline;
+      else if (changes.recurringPeriod !== null && (existing.isRecurring || changes.recurringPeriod !== undefined)) set.recurrenceDeadlineAnchor = changes.deadline;
     }
     if (changes.recurringPeriod !== undefined) set.isRecurring = changes.recurringPeriod !== null;
     if (changes.recurringPeriod === null) {
@@ -176,7 +181,7 @@ export class TaskSettingConcept {
       unset.recurringUnit = ""; unset.recurrenceDeadlineAnchor = "";
     } else if (changes.recurringPeriod !== undefined || changes.recurringUnit !== undefined) {
       const count = changes.recurringPeriod ?? existing.recurringPeriod;
-      const unit = changes.recurringUnit ?? existing.recurringUnit ?? "days";
+      const unit = changes.recurringUnit === null ? "days" : changes.recurringUnit ?? existing.recurringUnit ?? "days";
       this.#validate({ recurringPeriod: count, recurringUnit: unit });
       if (count !== undefined) {
         if (!instant) throw new InvalidRecurringPeriod("An instant is required to change recurrence.");

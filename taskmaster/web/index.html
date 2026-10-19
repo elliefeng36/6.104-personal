@@ -53,10 +53,12 @@
     .suggestion-row button[type=submit] { width: auto; margin: 0; }
     .suggestion-result { display: flex; align-items: baseline; gap: 10px; min-height: 20px; margin-top: 8px; overflow-wrap: anywhere; }
     .suggestion-complete { padding: 4px 10px; flex-shrink: 0; }
-    .suggestion-result .link { margin: 0; flex-shrink: 0; }
     .task-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
     .task-fields input, .task-fields select { min-width: 0; }
-    .filter-bar { margin-top: 20px; }
+    .filter-bar { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+    .task-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 18px 0; }
+    .task-list-heading h3 { margin: 0; }
+    .filter-indicator { font-size: 13px; background: var(--yellow); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; }
     .filter-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 88px auto; gap: 8px; align-items: center; }
     .filter-row select, .filter-row input { min-width: 0; padding: 8px; }
     .filter-row button[type=submit] { width: auto; margin: 0; padding: 9px 12px; }

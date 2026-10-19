@@ -262,3 +262,45 @@ describe("Only active tasks can be edited through the application", () => {
     expect(await read(task)).toEqual(before);
   });
 });
+
+
+describe("TaskSetting specification consistency", () => {
+  test("changing a deadline while disabling recurrence is one successful atomic edit", async () => {
+    const { task } = await setting.makeTask({ owner, name: "Recurring", recurringPeriod: 7, deadline, instant: now });
+    const replacement = "2099-07-01T12:00:00.000Z";
+    await setting.updateTask({ owner, task, instant: now, changes: { deadline: replacement, recurringPeriod: null, recurringUnit: null } });
+    expect(await read(task)).toEqual({ task, owner, name: "Recurring", deadline: replacement, hasDeadline: true, isRecurring: false });
+  });
+  test("clearing only the recurring unit resets to days without conflicting database updates", async () => {
+    const { task } = await setting.makeTask({ owner, name: "Monthly", recurringPeriod: 2, recurringUnit: "months", instant: now });
+    await setting.updateTask({ owner, task, instant: now, changes: { recurringUnit: null } });
+    expect(await read(task)).toMatchObject({ recurringPeriod: 2, recurringUnit: "days", isRecurring: true, nextOccurrenceAt: "2030-01-03T00:00:00.000Z" });
+  });
+  test("a recurrence unit alone never creates or retains a schedule", async () => {
+    const { task } = await setting.makeTask({ owner, name: "One-off", recurringUnit: "months", instant: now });
+    const before = await read(task);
+    await setting.updateTask({ owner, task, instant: now, changes: { recurringUnit: "months" } });
+    expect(await read(task)).toEqual(before);
+    expect(before).not.toHaveProperty("recurringUnit");
+  });
+  test("queries answer known and unknown owners without changing any task records", async () => {
+    const { task } = await setting.makeTask({ owner, name: "Read only", ...fields, instant: now });
+    const before = await database.collection("tasks").find({}).toArray();
+    expect(await setting._get({ owner: "unknown", task })).toEqual([]);
+    expect(await setting._forOwner({ owner: "unknown" })).toEqual({ records: [] });
+    expect((await setting._forOwner({ owner })).records).toEqual([await read(task)]);
+    expect(await setting._due({ instant: now })).toEqual([]);
+    expect(await database.collection("tasks").find({}).toArray()).toEqual(before);
+  });
+  test("malformed recurrence-unit input is rejected at the HTTP boundary without saving changes", async () => {
+    const handle = handler(), cookie = await login(owner);
+    const created = await handle(request("/tasks/make", { name: "Unchanged", ...fields }, cookie));
+    const { task } = await created.json();
+    const before = await database.collection("tasks").find({}).toArray();
+    for (const recurringUnit of [3, true, [], {}]) {
+      expect((await handle(request("/tasks/make", { name: "Invalid", recurringPeriod: 1, recurringUnit }, cookie))).status).toBe(400);
+      expect((await handle(request("/tasks/update", { task, changes: { name: "Must not save", recurringUnit } }, cookie))).status).toBe(400);
+      expect(await database.collection("tasks").find({}).toArray()).toEqual(before);
+    }
+  });
+});

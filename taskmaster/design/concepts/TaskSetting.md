@@ -17,7 +17,7 @@ unchanged. Only the owner can update or read a task's details.
 external User
   The owner supplied by the application.
 opaque Changes
-  A partial record of name, deadline, duration, and recurringPeriod. Omitted fields are unchanged; null clears optional fields.
+  A partial record of name, deadline, duration, recurringPeriod, and recurringUnit. Omitted fields are unchanged; null clears optional fields. A null recurringUnit resets the unit to days for a recurring task.
 opaque TaskRecords
   An array of full task detail records.
 ```
@@ -39,7 +39,7 @@ a set of Tasks with
   an optional recurrenceAnchor String
   an optional pendingRecurrence String
 Rule: Deadlines are UTC ISO timestamps, future when assigned; durations are minutes. Recurring units are days (default) or whole calendar months. Monthly dates clamp to the last day while retaining the original anchor day. Schedules start when enabled and advance indefinitely regardless of completion; missed cycles coalesce.
-Rule: hasDeadline and isRecurring exactly reflect the presence of their optional values.
+Rule: hasDeadline reflects deadline presence; isRecurring reflects recurringPeriod presence. Recurring tasks keep a schedule anchor and next occurrence. recurrenceDeadlineAnchor preserves the original deadline day across shorter months. No recurrence unit is retained without a period.
 ```
 
 ## Actions
@@ -55,12 +55,13 @@ makeTask (owner: User, name: String, deadline?: String, duration?: Number, recur
   where duration is supplied and not a finite nonnegative number
   then
     refuses INVALID_DURATION "Duration must be a finite nonnegative number of minutes."
-  where recurringPeriod is supplied and not a finite positive number
+  where recurringPeriod is supplied and not a finite positive number, recurringUnit is neither days nor months, a monthly period is fractional, or the first occurrence cannot be represented
   then
     refuses INVALID_RECURRING_PERIOD "Recurring period must be a finite positive number of days."
   where all fields are valid
   then
-    create a fresh task with owner, trimmed name, and supplied optional fields
+    create a fresh task with owner, trimmed name, and supplied deadline, duration, and recurringPeriod
+    retain recurringUnit only when a period is supplied, defaulting it to days
     set hasDeadline and isRecurring according to field presence
     for recurring tasks record recurrenceAnchor as instant and schedule the first occurrence
     returns task
@@ -78,13 +79,13 @@ updateTask (owner: User, task: Task, changes: Changes, instant: DateTime) : retu
   where a supplied duration is not a finite nonnegative number
   then
     refuses INVALID_DURATION "Duration must be a finite nonnegative number of minutes."
-  where a supplied recurringPeriod is not a finite positive number
+  where the resulting recurring period is not finite and positive, its monthly value is fractional, its unit is invalid, or the first occurrence cannot be represented
   then
     refuses INVALID_RECURRING_PERIOD "Recurring period must be a finite positive number of days."
   where task belongs to owner and supplied fields are valid
   then
     apply only supplied changes together, clearing optional fields supplied as null
-    cancel a pending schedule when recurrence is cleared; when recurrence settings change, anchor a new schedule at instant
+    remove recurrence unit and all schedule anchors when recurrence is cleared; when recurrence settings change, anchor a new schedule at instant
     leave omitted fields unchanged
     returns task
 
@@ -111,6 +112,7 @@ setDeadline (owner: User, task: Task, deadline: String, instant: DateTime) : ret
   where task belongs to owner and supplied fields are valid
   then
     set deadline and hasDeadline to true
+    reset recurrenceDeadlineAnchor to deadline when recurring
     leave omitted fields unchanged
     returns task
 
@@ -120,7 +122,7 @@ removeDeadline (owner: User, task: Task) : returns (task: Task)
     refuses NO_SUCH_TASK "There is no such task."
   where task belongs to owner and supplied fields are valid
   then
-    remove deadline and set hasDeadline to false
+    remove deadline and its recurrenceDeadlineAnchor, and set hasDeadline to false
     leave omitted fields unchanged
     returns task
 
@@ -151,7 +153,7 @@ startRecurring (owner: User, task: Task, recurringPeriod: Number, instant: DateT
   where task does not exist or belongs to another owner
   then
     refuses NO_SUCH_TASK "There is no such task."
-  where a supplied recurringPeriod is not a finite positive number
+  where the resulting recurring period is not finite and positive, its monthly value is fractional, its unit is invalid, or the first occurrence cannot be represented
   then
     refuses INVALID_RECURRING_PERIOD "Recurring period must be a finite positive number of days."
   where task belongs to owner and supplied fields are valid
@@ -168,13 +170,17 @@ stopRecurring (owner: User, task: Task) : returns (task: Task)
   where task belongs to owner and supplied fields are valid
   then
     remove recurringPeriod and set isRecurring to false
-    cancel scheduled and pending occurrences
+    remove recurringUnit, schedule anchors, scheduled and pending occurrences
     leave omitted fields unchanged
     returns task
+
 releaseOccurrence (owner: User, task: Task, scheduledFor: String, instant: DateTime) : returns (owner: User, task: Task, cycle: String, ready: Flag)
   where task is missing or belongs to another owner
   then
     refuses NO_SUCH_TASK "There is no such task."
+  where the next scheduled occurrence cannot be represented as a timestamp
+  then
+    refuses INVALID_RECURRING_PERIOD "Recurring period must be a finite positive number of days."
   where the advanced deadline cannot be represented as a timestamp
   then
     refuses INVALID_DEADLINE "The deadline must be a valid future UTC timestamp."
@@ -184,7 +190,8 @@ releaseOccurrence (owner: User, task: Task, scheduledFor: String, instant: DateT
     returns owner, task, cycle, ready
   where task is recurring and nextOccurrenceAt equals scheduledFor and is at or before instant
   then
-    advance a present deadline by at least one recurring period and enough whole periods to be later than instant
+    advance a present deadline from recurrenceDeadlineAnchor by at least one period beyond its previous value and enough whole periods to be later than instant
+    preserve the anchor day for calendar months, clamping each resulting shorter month
     leave a missing deadline absent
     record scheduledFor in pendingRecurrence and advance nextOccurrenceAt to the next anchored occurrence after instant
     set cycle to scheduledFor and ready to true

@@ -11,7 +11,8 @@ const makeInput = validator(value => cookie(value) && typeof value.name === "str
   Object.keys(value).every(key => ["session", "name", ...optionalFields].includes(key)) &&
   (value.deadline === undefined || value.deadline === null || typeof value.deadline === "string") &&
   (value.duration === undefined || value.duration === null || typeof value.duration === "number") &&
-  (value.recurringPeriod === undefined || value.recurringPeriod === null || typeof value.recurringPeriod === "number"), "Provide a name and valid optional task fields.");
+  (value.recurringPeriod === undefined || value.recurringPeriod === null || typeof value.recurringPeriod === "number") &&
+  (value.recurringUnit === undefined || value.recurringUnit === null || typeof value.recurringUnit === "string"), "Provide a name and valid optional task fields.");
 const editInput = validator(value => {
   if (!hasOnly(value, ["session", "task", "changes"]) || !cookie(value) || typeof value.task !== "string" || !value.task || !record(value.changes)) return false;
   const changes = value.changes;
@@ -19,7 +20,8 @@ const editInput = validator(value => {
     (changes.name === undefined || typeof changes.name === "string") &&
     (changes.deadline === undefined || changes.deadline === null || typeof changes.deadline === "string") &&
     (changes.duration === undefined || changes.duration === null || typeof changes.duration === "number") &&
-    (changes.recurringPeriod === undefined || changes.recurringPeriod === null || typeof changes.recurringPeriod === "number");
+    (changes.recurringPeriod === undefined || changes.recurringPeriod === null || typeof changes.recurringPeriod === "number") &&
+    (changes.recurringUnit === undefined || changes.recurringUnit === null || typeof changes.recurringUnit === "string");
 }, "Provide a task identity and supported field changes; null clears optional fields.");
 const output = validator(value => hasOnly(value, ["task"]) && typeof value.task === "string", "A task identity is required.");
 

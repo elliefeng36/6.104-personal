@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { MongoClient } from "mongodb";
 import { TaskSortingConcept } from "../src/concepts/TaskSorting.ts";
 import { TaskFilteringConcept } from "../src/concepts/TaskFiltering.ts";
-import { taskComparator, taskFilter } from "../src/compositions/task-transforms.ts";
+import { taskSnapshot, taskComparator, taskFilter } from "../src/compositions/task-transforms.ts";
 import type { Task } from "../src/concepts/TaskSetting.ts";
 import { applicationStorage } from "../src/storage.ts";
 import { assembleApplication } from "../src/assembly.ts";
@@ -169,4 +169,12 @@ describe("TaskFiltering principle, repeated actions, and errors", () => {
     expect(input).toEqual(before);
     expect((await filtering.filter({ tasks: input, filter: () => true })).tasks).toEqual(before);
   });
+});
+
+
+test("task snapshot computation treats external membership as opaque and checks record ownership", () => {
+  const alice = makeRecord("owned");
+  const bob = makeRecord("private", { owner: "bob" });
+  const snapshot = taskSnapshot({ taskList: { owner: "alice", activeTasks: [bob.task, alice.task], completedTasks: [] }, records: [alice, bob], status: "active" });
+  expect(snapshot).toEqual([alice]);
 });

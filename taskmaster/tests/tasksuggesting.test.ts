@@ -165,14 +165,13 @@ describe("Authenticated suggestion composition", () => {
   });
   test("tie-breaking preserves addition order even when detail-query order differs", async () => {
     const handle = handler(), cookie = await login(owner);
-    await database.collection("tasks").insertMany([
-      { task: "z-first", owner, name: "First added", hasDeadline: false, isRecurring: false },
-      { task: "a-second", owner, name: "Second added", hasDeadline: false, isRecurring: false },
-    ]);
+    const one = await storage.TaskSetting.makeTask({ owner, name: "One", instant: new Date() });
+    const two = await storage.TaskSetting.makeTask({ owner, name: "Two", instant: new Date() });
+    const [second, first] = [one.task, two.task].sort();
     await storage.TaskListing.initialize({ owner });
-    await storage.TaskListing.addTask({ owner, task: "z-first" });
-    await storage.TaskListing.addTask({ owner, task: "a-second" });
-    expect((await (await handle(post(path, {}, cookie))).json()).suggestion.task).toBe("z-first");
+    await storage.TaskListing.addTask({ owner, task: first! });
+    await storage.TaskListing.addTask({ owner, task: second! });
+    expect((await (await handle(post(path, {}, cookie))).json()).suggestion.task).toBe(first);
   });
 });
 

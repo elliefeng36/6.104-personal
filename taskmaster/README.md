@@ -54,8 +54,8 @@ after frontend changes. The backend serves both the frontend and `/api`.
   temporary database, deleted afterward. Use `TEST_MONGODB_URL` to select a
   separate test server; otherwise tests use `MONGODB_URL`.
 
-The latest saved P3 test execution is in `../P3/test-output.txt`; the action coverage
-map is in `../P3/concept-tests.md`.
+The latest saved test execution is in `test-output.txt`.
+To save a new execution in PowerShell, run `bun test 2>&1 | Tee-Object test-output.txt`.
 
 ## Structure
 

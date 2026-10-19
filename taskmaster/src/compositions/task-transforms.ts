@@ -2,7 +2,7 @@
 import type { Task } from "../concepts/TaskSetting.ts";
 import type { TaskList } from "../concepts/TaskListing.ts";
 export function taskSnapshot({ taskList, records, status }: { taskList: TaskList; records: Task[]; status: string }): Task[] {
-  const byId = new Map(records.map(task => [task.task, task]));
+  const byId = new Map(records.filter(task => task.owner === taskList.owner).map(task => [task.task, task]));
   const ids = status === "completed" ? taskList.completedTasks : taskList.activeTasks;
   return ids.flatMap(id => byId.has(id) ? [byId.get(id)!] : []);
 }

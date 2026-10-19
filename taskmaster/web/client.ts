@@ -19,6 +19,7 @@ createApp({
     const activeTasks = ref<Task[]>([]); const completedTasks = ref<Task[]>([]);
     const sortBy = ref("none"); const recurringFilter = ref("all"); const maximumDuration = ref("");
     const listError = ref("");
+    const appliedFilterSummary = ref("");
     let listRequest = 0;
     const tasksLoading = ref(false); const tasksLoaded = ref(false); const taskMessage = ref("");
     const editing = ref<Task | null>(null);
@@ -111,6 +112,10 @@ createApp({
           resetForm(); error.value = "Completed tasks cannot be edited.";
         }
         activeTasks.value = active; completedTasks.value = completed;
+        appliedFilterSummary.value = [
+          options.recurring === "recurring" ? "Recurring only" : options.recurring === "nonrecurring" ? "Nonrecurring only" : "",
+          maxDuration === null ? "" : `Max ${maxDuration} min`,
+        ].filter(Boolean).join(" / ");
         tasksLoaded.value = true;
       } catch { if (requestId === listRequest) listError.value = "Could not load tasks. Please try again."; }
       finally { if (requestId === listRequest) tasksLoading.value = false; }
@@ -228,7 +233,7 @@ createApp({
     }, 5000);
     onUnmounted(() => clearInterval(recurrencePoll));
     return { username, password, currentUser, registering, busy, error, submit, logout, toggle,
-      sortBy, recurringFilter, maximumDuration, listError, activeTasks, completedTasks, tasksLoading, tasksLoaded, taskMessage, loadTasks, changeTask,
+      sortBy, recurringFilter, maximumDuration, listError, appliedFilterSummary, activeTasks, completedTasks, tasksLoading, tasksLoaded, taskMessage, loadTasks, changeTask,
       pendingDelete, requestDelete, cancelDelete, confirmDelete, trapDeleteFocus, editing, draft, resetForm, editTask, saveTask, deadlineText, recurrenceText, isOverdue,
       timeLimit, suggestion, suggestionMessage, suggestionError, suggestTask, clearSuggestion };
   },
@@ -261,7 +266,6 @@ createApp({
             <template v-else-if="suggestion">
               <strong>{{ suggestion.name }}<span v-if="isOverdue(suggestion)"> (overdue)</span></strong>
               <button class="suggestion-complete" :disabled="busy || tasksLoading" :aria-label="'Complete suggested task ' + suggestion.name" @click="changeTask('complete', suggestion.task)">Complete</button>
-              <button class="link" :disabled="busy" @click="editTask(suggestion)">Edit</button>
             </template>
             <span v-else class="hint">No suggestion yet.</span>
           </div>
@@ -316,7 +320,10 @@ createApp({
           </form>
           <p v-if="tasksLoading" role="status">Loading tasks…</p>
           <template v-else-if="tasksLoaded">
-            <h3>Active ({{ activeTasks.length }})</h3>
+            <div class="task-list-heading">
+              <h3>Active ({{ activeTasks.length }})</h3>
+              <span v-if="appliedFilterSummary" class="filter-indicator" role="status">Filtered: {{ appliedFilterSummary }}</span>
+            </div>
             <p v-if="!activeTasks.length" class="hint">No active tasks match these filters.</p>
             <ul class="tasks">
               <li v-for="task in activeTasks" :key="task.task" :class="{ overdue: isOverdue(task) }">

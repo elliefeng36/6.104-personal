@@ -6,6 +6,8 @@
 
 [Beat Demo](https://drive.google.com/file/d/1WQ57kmlsYbzzBrMqZLSlMXXqOCppYlE-/view?usp=sharing)
 
+[Deployed App](https://taskmaster.mit-sdg.dev)
+
 ## Taskmaster
 
 Project materials:

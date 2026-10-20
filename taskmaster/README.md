@@ -65,8 +65,44 @@ frontend and `/api` from the same backend and public origin.
   temporary database, deleted afterward. Use `TEST_MONGODB_URL` to select a
   separate test server; otherwise tests use `MONGODB_URL`.
 
-The latest saved test execution is in `test-output.txt`.
-To save a new execution in PowerShell, run `bun test 2>&1 | Tee-Object test-output.txt`.
+## Automated tests
+
+Install Bun and Podman, then run these commands from the repository root:
+
+```sh
+bun install --cwd taskmaster
+```
+
+Copy `taskmaster/env.example` to `taskmaster/.env` if it does not already exist.
+Start the Podman machine with `podman machine start` (use `podman machine init`
+first if you have never created one). Then:
+
+```sh
+bun run --cwd taskmaster db:up
+bun run test
+```
+
+The app server does not need to be running. Bun loads `taskmaster/.env` when the
+root test script runs in that directory. For an existing MongoDB installation,
+set `TEST_MONGODB_URL` or `MONGODB_URL` instead of starting the container. The
+database account must be allowed to create and drop temporary test databases;
+use a local development database rather than the restricted deployment database.
+Tests create uniquely named databases and remove them afterward, leaving app
+data intact.
+
+The suite uses `bun:test` and assertions for each completed concept's operational
+sequence, additional scenarios, expected errors, and unchanged state on rejection.
+It also includes HTTP integration, concept isolation, and production hosting tests.
+
+The latest saved execution is [test-output.txt](test-output.txt). To refresh it
+in PowerShell, run from `taskmaster/`:
+
+```powershell
+bun test 2>&1 | Tee-Object -FilePath test-output.txt
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+```
+
+Commit the updated output along with the tests before pushing your submission.
 
 ## Structure
 

@@ -1,0 +1,24 @@
+{
+  "name": "taskmaster-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "bun@1.4.2",
+  "scripts": {
+    "dev": "vite --host localhost --port 5173 --strictPort",
+    "build": "vite build",
+    "type-check": "vue-tsc --noEmit -p tsconfig.app.json",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.5.44",
+    "@mit-sdg/sync-engine-http": "1.1.0"
+  },
+  "devDependencies": {
+    "vite": "^8.3.4",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "vue-tsc": "^3.3.13",
+    "typescript": ">=6 <7",
+    "@types/node": "^24.0.0"
+  }
+}

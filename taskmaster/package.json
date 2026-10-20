@@ -1,12 +1,11 @@
 {
   "private": true,
   "type": "module",
-  "packageManager": "bun@1.3.4",
+  "packageManager": "bun@1.4.2",
   "dependencies": {
     "@mit-sdg/sync-engine": "1.1.0",
     "@mit-sdg/sync-engine-http": "1.1.0",
-    "mongodb": "^7.7.0",
-    "vue": "^3.5.44"
+    "mongodb": "^7.7.0"
   },
   "devDependencies": {
     "typescript": ">=6 <7",
@@ -19,13 +18,16 @@
     "start": "bun src/main.ts",
     "check:design": "sync-engine check-design design/concepts/*.md design/types.md design/compositions/*.md",
     "test": "bun test",
-    "build:web": "bun build web/client.ts --target browser --outdir dist",
-    "dev": "bun --watch src/main.ts",
+    "dev": "PUBLIC_ORIGIN=http://localhost:5173 bun --watch src/main.ts",
     "down": "podman compose down",
     "db:up": "podman compose up -d mongo",
     "db:shell": "podman compose exec mongo mongosh -u dev -p dev",
     "db:logs": "podman compose logs mongo",
-    "db:reset": "podman compose down -v"
+    "db:reset": "podman compose down -v",
+    "build": "bun --bun run --cwd frontend build",
+    "check:frontend": "bun run --cwd frontend type-check",
+    "dev:frontend": "bun --bun run --cwd frontend dev",
+    "preview": "bun run db:up && bun run build && NODE_ENV=production PORT=3000 HOST=127.0.0.1 PUBLIC_ORIGIN=http://127.0.0.1:3000 bun run start"
   },
   "overrides": {
     "bson": "7.2.0"

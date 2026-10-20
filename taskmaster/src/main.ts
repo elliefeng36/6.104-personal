@@ -7,6 +7,7 @@ import { client, db } from "./db.ts";
 import { authenticationPolicy } from "./edge.ts";
 import { applicationStorage } from "./storage.ts";
 import { processRecurrences } from "./recurrences.ts";
+import { createHostHandler } from "./hosting.ts";
 
 await client.connect();
 const application = assembleApplication(await applicationStorage(db));
@@ -15,9 +16,13 @@ let recurrenceBusy = false;
 const checkRecurrences = async () => {
   if (recurrenceBusy) return;
   recurrenceBusy = true;
-  try { await processRecurrences(application); }
-  catch (error) { console.error("Could not process recurring tasks:", error); }
-  finally { recurrenceBusy = false; }
+  try {
+    await processRecurrences(application);
+  } catch (error) {
+    console.error("Could not process recurring tasks:", error);
+  } finally {
+    recurrenceBusy = false;
+  }
 };
 await checkRecurrences();
 const recurrenceTimer = setInterval(checkRecurrences, 1000);
@@ -29,27 +34,22 @@ const handler = createHttpHandler({
   gateway: createGateway({ application }),
   policy: authenticationPolicy(origin),
 });
-const bundle = await Bun.build({
-  entrypoints: [fileURLToPath(new URL("../web/client.ts", import.meta.url))],
-  target: "browser",
-  minify: true,
-  define: { __VUE_OPTIONS_API__: "true", __VUE_PROD_DEVTOOLS__: "false", __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: "false", "process.env.NODE_ENV": '"production"' },
-});
-if (!bundle.success) throw new Error(`Frontend build failed: ${bundle.logs.join("\n")}`);
-const javascript = await bundle.outputs[0].text();
-const html = await Bun.file(new URL("../web/index.html", import.meta.url)).text();
 const server = Bun.serve({
-  hostname, port,
-  fetch(request) {
-    const path = new URL(request.url).pathname;
-    if (path.startsWith("/api/")) return handler(request);
-    if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
-    if (path === "/") return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
-    if (path === "/app.js") return new Response(javascript, { headers: { "Content-Type": "text/javascript; charset=utf-8" } });
-    return new Response("Not found", { status: 404 });
-  },
+  hostname,
+  port,
+  fetch: createHostHandler({
+    dist: fileURLToPath(new URL("../frontend/dist/", import.meta.url)),
+    api: handler,
+    checkDatabase: () => db.command({ ping: 1 }),
+  }),
 });
 console.log(`Taskmaster listening at ${server.url}`);
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  process.on(signal, async () => { clearInterval(recurrenceTimer); await server.stop(true); await application.whenIdle(); await client.close(); process.exit(0); });
+  process.on(signal, async () => {
+    clearInterval(recurrenceTimer);
+    await server.stop(true);
+    await application.whenIdle();
+    await client.close();
+    process.exit(0);
+  });
 }

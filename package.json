@@ -1,5 +1,18 @@
 {
   "dependencies": {
     "@mit-sdg/sync-engine": "1.1.0"
-  }
+  },
+  "scripts": {
+    "build": "bun run --cwd taskmaster build",
+    "start": "bun run --cwd taskmaster start",
+    "preview": "bun run db:up && bun run build && NODE_ENV=production PORT=3000 PUBLIC_ORIGIN=http://127.0.0.1:3000 bun run start",
+    "dev": "bun run --cwd taskmaster dev",
+    "dev:frontend": "bun run --cwd taskmaster dev:frontend",
+    "check": "bun run --cwd taskmaster check && bun run --cwd taskmaster check:frontend",
+    "test": "bun run --cwd taskmaster test",
+    "generate": "bun run --cwd taskmaster generate"
+  },
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.2"
 }

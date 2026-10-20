@@ -1,7 +1,8 @@
+<script lang="ts">
 // Vue interface using the generated, typed API client.
-import { createApp, nextTick, onMounted, onUnmounted, reactive, ref } from "vue/dist/vue.esm-bundler.js";
+import { defineComponent, nextTick, onMounted, onUnmounted, reactive, ref } from "vue";
 import { createHttpClient } from "@mit-sdg/sync-engine-http/client";
-import type { TaskmasterWireHttp } from "../generated/wire.ts";
+import type { TaskmasterWireHttp } from "../../generated/wire.ts";
 type Task = TaskmasterWireHttp["/tasklists/view"]["output"]["list"]["activeTasks"][number]["details"];
 type TaskChanges = TaskmasterWireHttp["/tasks/update"]["input"]["changes"];
 
@@ -11,7 +12,7 @@ const localTime = (value?: string) => {
   const date = new Date(value);
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 };
-createApp({
+export default defineComponent({
   setup() {
     const username = ref(""); const password = ref("");
     const currentUser = ref<string | null>(null);
@@ -203,7 +204,8 @@ createApp({
     }
     function toggle() { registering.value = !registering.value; error.value = ""; password.value = ""; }
     const isOverdue = (task: Task) => task.hasDeadline && !!task.deadline && Date.parse(task.deadline) < currentTime.value;
-    const deadlineText = (deadline: string) => {
+    const deadlineText = (deadline?: string) => {
+      if (!deadline) return "";
       const date = new Date(deadline);
       return date.toLocaleString("en-US", {
         month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
@@ -237,8 +239,11 @@ createApp({
       pendingDelete, requestDelete, cancelDelete, confirmDelete, trapDeleteFocus, editing, draft, resetForm, editTask, saveTask, deadlineText, recurrenceText, isOverdue,
       timeLimit, suggestion, suggestionMessage, suggestionError, suggestTask, clearSuggestion };
   },
-  template: `
-    <main>
+});
+</script>
+
+<template>
+<main>
       <h1>Taskmaster</h1>
       <template v-if="currentUser">
         <p>You’re logged in as <strong>{{ currentUser }}</strong>.</p>
@@ -371,5 +376,72 @@ createApp({
         <button class="link" :disabled="busy" @click="toggle">{{ registering ? 'Already have an account? Log in' : 'New here? Create an account' }}</button>
       </template>
       <p v-if="error && !currentUser" role="alert" class="error">{{ error }}</p>
-    </main>`,
-}).mount("#app");
+    </main>
+</template>
+
+<style>
+:root { --green: #b8e894ff; --yellow: #fffdaeff; --red: #ffbbb8ff; --aqua: #a4ebf1ff; --ink: #25342b; --muted: #53624f; --line: #d2dfc8; --danger: #8c2626; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 32px 20px; background: var(--yellow); color: var(--ink); font-family: "Comic Neue", cursive; }
+    main { max-width: 640px; margin: auto; padding: 28px; background: white; border: 1px solid var(--line); border-radius: 12px; }
+    h1, h2, h3, h4, h5, h6 { font-family: "Geist Mono", monospace; }
+    h1 { margin: 0 0 24px; font-size: 26px; } h2 { font-size: 19px; }
+    fieldset { border: 0; padding: 0; margin: 0; }
+    label { display: block; margin: 16px 0 6px; }
+    input { width: 100%; padding: 10px; border: 1px solid #71836a; border-radius: 6px; font: inherit; }
+    button { padding: 10px 16px; border: 0; border-radius: 6px; background: var(--aqua); color: var(--ink); cursor: pointer; font: inherit; }
+    button[type=submit] { width: 100%; margin-top: 20px; }
+    button:disabled { opacity: .6; cursor: wait; }
+    .link { background: transparent; color: #24534c; padding: 0; margin-top: 20px; text-decoration: underline; }
+    .hint { font-size: 13px; color: var(--muted); } .error { color: var(--danger); }
+    :focus-visible { outline: 3px solid #3a726b; outline-offset: 3px; }
+    section { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 12px; }
+    select { width: 100%; padding: 10px; font: inherit; border-radius: 6px; border: 1px solid #71836a; }
+    .tasks { list-style: none; padding: 0; }
+    .tasks li { padding: 12px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+    .task-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .task-row > strong { min-width: 0; overflow-wrap: anywhere; }
+    .actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .actions button { padding: 6px 10px; }
+    .actions button:first-child, .suggestion-complete { background: var(--green); }
+    .actions button:nth-child(2) { background: var(--yellow); }
+    button:not(:disabled):hover { filter: brightness(.96); }
+    .tasks li.overdue { background: var(--red); border-left: 3px solid var(--danger); border-radius: 6px; padding: 10px; margin: 6px 0; }
+    .overdue .task-row > strong, .overdue .task-meta { color: var(--danger); }
+    .overdue-label { font-weight: 700; }
+    .suggestion-result.overdue { background: var(--red); color: var(--danger); border-radius: 6px; padding: 6px 8px; }
+    .task-meta { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 4px; }
+    .task-meta span + span::before { content: "\00b7"; margin-right: 8px; }
+    .dialog-backdrop { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 20px; background: rgb(20 29 44 / 45%); }
+    .delete-dialog { width: min(100%, 400px); padding: 24px; background: white; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 40px rgb(0 0 0 / 18%); overflow-wrap: anywhere; }
+    .delete-dialog h2 { margin-top: 0; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; }
+    .delete { background: var(--red); color: var(--danger); }
+    .completed { color: var(--muted); text-decoration: line-through; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    .suggestion-row { display: flex; align-items: center; gap: 10px; }
+    .suggestion-row h2 { margin: 0 auto 0 0; font-size: 16px; }
+    .suggestion-row input { width: 120px; min-width: 0; }
+    .suggestion-row button[type=submit] { width: auto; margin: 0; }
+    .suggestion-result { display: flex; align-items: baseline; gap: 10px; min-height: 20px; margin-top: 8px; overflow-wrap: anywhere; }
+    .suggestion-complete { padding: 4px 10px; flex-shrink: 0; }
+    .task-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+    .task-fields input, .task-fields select { min-width: 0; }
+    .filter-bar { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+    .task-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 18px 0; }
+    .task-list-heading h3 { margin: 0; }
+    .filter-indicator { font-size: 13px; background: var(--yellow); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; }
+    .filter-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 88px auto; gap: 8px; align-items: center; }
+    .filter-row select, .filter-row input { min-width: 0; padding: 8px; }
+    .filter-row button[type=submit] { width: auto; margin: 0; padding: 9px 12px; }
+    @media (max-width: 440px) {
+      body { padding: 16px 10px; }
+      main { padding: 18px; }
+      .suggestion-row { gap: 6px; }
+      .suggestion-row h2 { font-size: 14px; }
+      .suggestion-row input { width: 100px; }
+      .suggestion-row button { padding: 10px; }
+      .filter-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+      .task-fields { grid-template-columns: minmax(0, 1fr); }
+    }
+</style>

@@ -2,6 +2,8 @@
 // Vue interface using the generated, typed API client.
 import { defineComponent, nextTick, onMounted, onUnmounted, reactive, ref } from "vue";
 import { createHttpClient } from "@mit-sdg/sync-engine-http/client";
+import { serviceError, signInError } from "./errors.ts";
+import { taskFieldErrors } from "./task-validation.ts";
 import type { TaskmasterWireHttp } from "../../generated/wire.ts";
 type Task = TaskmasterWireHttp["/tasklists/view"]["output"]["list"]["activeTasks"][number]["details"];
 type TaskChanges = TaskmasterWireHttp["/tasks/update"]["input"]["changes"];
@@ -22,7 +24,7 @@ export default defineComponent({
     const listError = ref("");
     const appliedFilterSummary = ref("");
     let listRequest = 0;
-    const tasksLoading = ref(false); const tasksLoaded = ref(false); const taskMessage = ref("");
+    const tasksLoading = ref(false); const tasksLoaded = ref(false);
     const editing = ref<Task | null>(null);
     const pendingDelete = ref<Task | null>(null);
     const draft = reactive({ name: "", deadline: "", duration: "", recurringPeriod: "", repeat: "none" });
@@ -52,7 +54,7 @@ export default defineComponent({
           if (result.error === "UNAUTHORIZED") taskError(result.error);
           else suggestionError.value = result.error === "INVALID_REQUEST"
             ? "Enter a nonnegative number of minutes, or leave it blank for no limit."
-            : "Could not suggest a task. Please try again.";
+            : serviceError(result.error, "Could not suggest a task. Please try again.");
           return;
         }
         await loadTasks();
@@ -73,7 +75,7 @@ export default defineComponent({
     }
     function editTask(task: Task) {
       clearSuggestion();
-      editing.value = task; error.value = ""; taskMessage.value = "";
+      editing.value = task; error.value = "";
       Object.assign(draft, { name: task.name, deadline: localTime(task.deadline),
         duration: task.duration?.toString() ?? "", recurringPeriod: task.recurringPeriod?.toString() ?? "", repeat: !task.isRecurring ? "none" : task.recurringUnit === "months" ? "monthly" : task.recurringPeriod === 1 ? "daily" : task.recurringPeriod === 7 ? "weekly" : "custom" });
       document.getElementById("task-name")?.focus();
@@ -83,9 +85,9 @@ export default defineComponent({
         clearSuggestion();
         currentUser.value = null; activeTasks.value = []; completedTasks.value = []; tasksLoaded.value = false; resetForm();
         error.value = "Your session expired. Please log in again.";
-      } else if (code === "NOT_FOUND") error.value = "That task is unavailable or is no longer active. Refresh your tasks.";
-      else if (code === "INVALID_REQUEST") error.value = "Check the task fields: name is required, a new deadline must be in the future, duration must be nonnegative, and recurring period must be positive.";
-      else error.value = "Could not update your tasks. Please try again.";
+      } else if (code === "NOT_FOUND") error.value = "That task is unavailable or is no longer active. Your list updates automatically.";
+      else if (code === "INVALID_REQUEST") error.value = taskFieldErrors(draft, Date.now(), editing.value ? localTime(editing.value.deadline) : undefined).join(" ") || "The server could not accept these changes. Check your task fields and try again.";
+      else error.value = serviceError(code, "Could not update your tasks. Please try again.");
     }
     async function loadTasks(background = false) {
       const loadingFor = currentUser.value;
@@ -104,8 +106,12 @@ export default defineComponent({
           client.taskFiltering.view({ ...options, status: "completed" }),
         ]);
         if (currentUser.value !== loadingFor || requestId !== listRequest) return;
-        if ("error" in activeResult) { tasksLoaded.value = false; taskError(activeResult.error); return; }
-        if ("error" in completedResult) { tasksLoaded.value = false; taskError(completedResult.error); return; }
+        const listFailure = (code: string) => {
+          if (code === "UNAUTHORIZED") taskError(code);
+          else listError.value = serviceError(code, "Could not load tasks. Please try again.");
+        };
+        if ("error" in activeResult) { listFailure(activeResult.error); return; }
+        if ("error" in completedResult) { listFailure(completedResult.error); return; }
         const active = activeResult.tasks;
         const completed = completedResult.tasks;
         if (JSON.stringify(activeTasks.value) !== JSON.stringify(active) || JSON.stringify(completedTasks.value) !== JSON.stringify(completed)) clearSuggestion();
@@ -123,7 +129,9 @@ export default defineComponent({
     }
     async function saveTask() {
       clearSuggestion();
-      busy.value = true; error.value = ""; taskMessage.value = "";
+      const fieldErrors = taskFieldErrors(draft, Date.now(), editing.value ? localTime(editing.value.deadline) : undefined);
+      if (fieldErrors.length) { error.value = fieldErrors.join(" "); return; }
+      busy.value = true; error.value = "";
       try {
         const period = draft.repeat === "none" ? null : draft.repeat === "daily" || draft.repeat === "monthly" ? 1 : draft.repeat === "weekly" ? 7 : Number(draft.recurringPeriod);
         const unit = draft.repeat === "monthly" ? "months" : "days";
@@ -138,7 +146,7 @@ export default defineComponent({
           if (period !== (original.recurringPeriod ?? null) || (period !== null && unit !== (original.recurringUnit ?? "days"))) {
             changes.recurringPeriod = period; changes.recurringUnit = period === null ? null : unit;
           }
-          if (!Object.keys(changes).length) { resetForm(); taskMessage.value = "No changes to save."; return; }
+          if (!Object.keys(changes).length) { resetForm(); return; }
           result = await client.tasks.update({ task: original.task, changes });
         } else {
           result = await client.tasks.make({ name: draft.name,
@@ -148,7 +156,7 @@ export default defineComponent({
           });
         }
         if ("error" in result) { taskError(result.error); return; }
-        resetForm(); taskMessage.value = original ? "Task updated." : "Task created.";
+        resetForm();
         await loadTasks();
       } catch { error.value = "Could not save the task. Check the fields and try again."; }
       finally { busy.value = false; }
@@ -176,31 +184,34 @@ export default defineComponent({
     }
     async function changeTask(action: "delete" | "complete", task: string) {
       clearSuggestion();
-      busy.value = true; error.value = ""; taskMessage.value = "";
+      busy.value = true; error.value = "";
       try {
         const result = await client.tasklists[action]({ task });
         if ("error" in result) { taskError(result.error); if (result.error === "NOT_FOUND") await loadTasks(); return; }
         if (editing.value?.task === task) resetForm();
-        taskMessage.value = action === "delete" ? "Task deleted." : "Task completed.";
+
         await loadTasks();
-      } finally { busy.value = false; }
+      } catch { error.value = "Could not change the task. Refresh to check its status before trying again."; }
+      finally { busy.value = false; }
     }
     async function submit() {
       busy.value = true; error.value = "";
       try {
         const credentials = { username: username.value, password: password.value };
         const result = registering.value ? await client.auth.register(credentials) : await client.auth["sign-in"](credentials);
-        if ("error" in result) error.value = result.error === "UNAUTHORIZED" ? "The username or password is incorrect." : result.error === "CONFLICT" ? "That username is already registered." : "Could not sign in. Check your username and password and try again.";
+        if ("error" in result) error.value = signInError(result.error, registering.value);
         else { currentUser.value = result.account; password.value = ""; await loadTasks(); }
-      } finally { busy.value = false; }
+      } catch { error.value = "Could not finish signing in. Please try again."; }
+      finally { busy.value = false; }
     }
     async function logout() {
       busy.value = true; error.value = "";
       try {
         const result = await client.auth["sign-out"]({});
-        if ("error" in result && result.error !== "UNAUTHORIZED") error.value = "Could not log out. Please try again.";
-        else { currentUser.value = null; password.value = ""; activeTasks.value = []; completedTasks.value = []; tasksLoaded.value = false; taskMessage.value = ""; resetForm(); clearSuggestion(); }
-      } finally { busy.value = false; }
+        if ("error" in result && result.error !== "UNAUTHORIZED") error.value = serviceError(result.error, "Could not log out. Please try again.");
+        else { currentUser.value = null; password.value = ""; activeTasks.value = []; completedTasks.value = []; tasksLoaded.value = false; resetForm(); clearSuggestion(); }
+      } catch { error.value = "Could not log out. Please try again."; }
+      finally { busy.value = false; }
     }
     function toggle() { registering.value = !registering.value; error.value = ""; password.value = ""; }
     const isOverdue = (task: Task) => task.hasDeadline && !!task.deadline && Date.parse(task.deadline) < currentTime.value;
@@ -222,8 +233,9 @@ export default defineComponent({
       try {
         const result = await client.auth.current({});
         if (!("error" in result)) { currentUser.value = result.username; await loadTasks(); }
-        else if (result.error !== "UNAUTHORIZED") error.value = "Could not check your session. Please try again.";
-      } finally { busy.value = false; }
+        else if (result.error !== "UNAUTHORIZED") error.value = serviceError(result.error, "Could not check your session. Please try again.");
+      } catch { error.value = "Could not check your session. Please try again."; }
+      finally { busy.value = false; }
     });
     // Keep scheduled returns visible without disrupting an open edit form.
     let polling = false;
@@ -235,7 +247,7 @@ export default defineComponent({
     }, 5000);
     onUnmounted(() => clearInterval(recurrencePoll));
     return { username, password, currentUser, registering, busy, error, submit, logout, toggle,
-      sortBy, recurringFilter, maximumDuration, listError, appliedFilterSummary, activeTasks, completedTasks, tasksLoading, tasksLoaded, taskMessage, loadTasks, changeTask,
+      sortBy, recurringFilter, maximumDuration, listError, appliedFilterSummary, activeTasks, completedTasks, tasksLoading, tasksLoaded, loadTasks, changeTask,
       pendingDelete, requestDelete, cancelDelete, confirmDelete, trapDeleteFocus, editing, draft, resetForm, editTask, saveTask, deadlineText, recurrenceText, isOverdue,
       timeLimit, suggestion, suggestionMessage, suggestionError, suggestTask, clearSuggestion };
   },
@@ -277,7 +289,7 @@ export default defineComponent({
         </section>
         <section aria-label="Your tasks">
           <h2>{{ editing ? 'Edit task' : 'New task' }}</h2>
-          <form @submit.prevent="saveTask">
+          <form @submit.prevent="saveTask" novalidate>
             <fieldset :disabled="busy || tasksLoading">
               <label for="task-name" class="sr-only">Task name</label>
               <input id="task-name" v-model="draft.name" placeholder="Task name" required maxlength="200" :aria-expanded="!!editing || !!draft.name.trim()" aria-controls="task-details">
@@ -359,8 +371,6 @@ export default defineComponent({
               </div>
             </li></ul>
           </template>
-          <button class="link" :disabled="busy || tasksLoading" @click="clearSuggestion(); loadTasks()">Refresh tasks</button>
-          <p v-if="taskMessage" role="status">{{ taskMessage }}</p>
         </section>
       </template>
       <template v-else>

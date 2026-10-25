@@ -1,10 +1,18 @@
 # 6.104-personal
 
-[Design Document](P1/design-doc.md)
+Taskmaster is an app that helps you remember those tiny tasks that always seem to slip through the cracks and fight the decision paralysis you're faced with when you stare down a giant list of tasks.
+
+## Design and Demos
+
+[P1 Design Document](P1/design-doc.md)
+
+[Final Design Document](P4\design-doc.md)
 
 [Alpha Demo](https://drive.google.com/file/d/1zh1_5g7yUOdYGMkeVhfxKdMBvl0c_zEk/view?usp=sharing)
 
-[Beat Demo](https://drive.google.com/file/d/1WQ57kmlsYbzzBrMqZLSlMXXqOCppYlE-/view?usp=sharing)
+[Beta Demo](https://drive.google.com/file/d/1WQ57kmlsYbzzBrMqZLSlMXXqOCppYlE-/view?usp=sharing)
+
+[Final Demo]
 
 [Deployed App](https://taskmaster.mit-sdg.dev)
 

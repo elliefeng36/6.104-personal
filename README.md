@@ -12,7 +12,7 @@ Taskmaster is an app that helps you remember those tiny tasks that always seem t
 
 [Beta Demo](https://drive.google.com/file/d/1WQ57kmlsYbzzBrMqZLSlMXXqOCppYlE-/view?usp=sharing)
 
-[Final Demo]
+[Final Demo](https://drive.google.com/file/d/1MQ1qdb1Vmk7vnfdGZeGsymh33m30M8zx/view?usp=sharing)
 
 [Deployed App](https://taskmaster.mit-sdg.dev)
 

@@ -16,6 +16,12 @@ Taskmaster is an app that helps you remember those tiny tasks that always seem t
 
 [Deployed App](https://taskmaster.mit-sdg.dev)
 
+## User Testing
+
+[Task List](P5\task-list.md)
+
+[User Studies and Design Flaws](P5\design-notes.md)
+
 ## Taskmaster
 
 Project materials:
